@@ -3164,72 +3164,59 @@ a.session-card {
 }
 
 .wx-money-message {
-    width: min(320px, 74vw);
-    overflow: hidden;
-    border-radius: 8px;
-    background: #f6a23a;
-    color: #fff;
-    box-shadow: 0 12px 26px rgba(168, 104, 30, 0.18);
-}
-
-.wx-money-message.transfer {
-    background: #f3b154;
-}
-
-.wx-money-message-main {
-    display: grid;
-    grid-template-columns: 46px minmax(0, 1fr);
-    gap: 12px;
-    align-items: center;
-    padding: 14px;
-}
-
-.wx-money-message-icon {
-    display: inline-grid;
-    place-items: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.22);
-    font-weight: 800;
-}
-
-.wx-money-message strong,
-.wx-money-message span {
-    display: block;
-}
-
-.wx-money-message strong {
-    font-size: 16px;
-    font-weight: 700;
-}
-
-.wx-money-message .wx-money-message-main span:not(.wx-money-message-icon) {
-    margin-top: 2px;
-    font-size: 22px;
-    font-weight: 800;
+    width: min(300px, 58vw);
+    color: #050505;
 }
 
 .wx-money-message p {
     margin: 0;
-    padding: 0 14px 12px;
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 14px;
-    line-height: 1.5;
+    color: #050505;
+    line-height: 1.2;
 }
 
-.wx-money-message small {
-    display: block;
-    padding: 8px 14px;
-    background: #fff;
-    color: #8b8b8b;
-    font-size: 12px;
+.wx-money-note {
+    font-size: 26px;
+    font-weight: 800;
+}
+
+.wx-money-title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 2px !important;
+    font-size: 23px !important;
+    white-space: nowrap;
+}
+
+.wx-money-title strong {
+    font-weight: 800;
+}
+
+.wx-money-title span {
+    font-weight: 500;
+}
+
+.wx-money-status {
+    margin-top: 8px !important;
+    font-size: 20px !important;
 }
 
 .wx-bubble-body .chat-bubble-head {
-    margin-bottom: 4px;
-    color: #777;
-    font-size: 12px;
+    margin-bottom: 10px;
+    color: #6f7480;
+    font-size: 18px;
+}
+
+.wx-bubble-body .chat-bubble-head strong {
+    margin: 0;
+    color: #6f7480;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.wx-bubble-body .chat-bubble-head span {
+    color: #6f7480;
+    font-size: 18px;
 }
 
 .wechat-input-panel {

@@ -872,7 +872,7 @@ namespace DramaMurderGraduation.Web
         {
             if (isRevoked != null && isRevoked != DBNull.Value && Convert.ToBoolean(isRevoked))
             {
-                return new HtmlString("<p>这条消息已被撤回。</p>");
+                return new HtmlString("<p>\u8fd9\u6761\u6d88\u606f\u5df2\u88ab\u64a4\u56de\u3002</p>");
             }
 
             var type = Convert.ToString(messageType);
@@ -881,21 +881,20 @@ namespace DramaMurderGraduation.Web
             {
                 var rawContent = Convert.ToString(content);
                 var amountText = ExtractMoneyAmount(rawContent);
-                var label = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "微信红包" : "微信转账";
-                var status = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "已存入对方余额" : "已实时到账";
-                var icon = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "红" : "转";
+                var label = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "\u5fae\u4fe1\u7ea2\u5305" : "\u5fae\u4fe1\u8f6c\u8d26";
+                var status = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "\u5df2\u5b58\u5165\u5bf9\u65b9\u4f59\u989d" : "\u5df2\u8f6c\u5165\u5bf9\u65b9\u4f59\u989d";
                 var css = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "redpacket" : "transfer";
                 var note = StripMoneyPrefix(rawContent);
+                if (string.IsNullOrWhiteSpace(note))
+                {
+                    note = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "\u7ea2" : "\u8f6c";
+                }
 
                 return new HtmlString(
                     "<div class=\"wx-money-message " + css + "\">" +
-                    "<div class=\"wx-money-message-main\">" +
-                    "<span class=\"wx-money-message-icon\">" + icon + "</span>" +
-                    "<div><strong>" + HttpUtility.HtmlEncode(label) + "</strong>" +
-                    "<span>￥" + HttpUtility.HtmlEncode(amountText) + "</span></div>" +
-                    "</div>" +
-                    (string.IsNullOrWhiteSpace(note) ? string.Empty : "<p>" + HighlightKeyword(note, ConversationSearchKeyword) + "</p>") +
-                    "<small>" + status + "</small>" +
+                    "<p class=\"wx-money-note\">" + HighlightKeyword(note, ConversationSearchKeyword) + "</p>" +
+                    "<p class=\"wx-money-title\"><strong>" + HttpUtility.HtmlEncode(label) + "</strong><span>\uffe5 " + HttpUtility.HtmlEncode(amountText) + "</span></p>" +
+                    "<p class=\"wx-money-status\">" + HttpUtility.HtmlEncode(status) + "</p>" +
                     "</div>");
             }
 
@@ -904,17 +903,17 @@ namespace DramaMurderGraduation.Web
 
         private static string ExtractMoneyAmount(string content)
         {
-            var match = Regex.Match(content ?? string.Empty, @"￥\s*(\d+(?:\.\d{1,2})?)");
+            var match = Regex.Match(content ?? string.Empty, @"(\d+(?:\.\d{1,2})?)");
             return match.Success ? match.Groups[1].Value : "0.00";
         }
 
         private static string StripMoneyPrefix(string content)
         {
             var value = content ?? string.Empty;
-            var separatorIndex = value.IndexOf(" · ", StringComparison.Ordinal);
-            if (separatorIndex >= 0 && separatorIndex + 3 < value.Length)
+            var separatorIndex = value.IndexOf('\u00b7');
+            if (separatorIndex >= 0 && separatorIndex + 1 < value.Length)
             {
-                return value.Substring(separatorIndex + 3).Trim();
+                return value.Substring(separatorIndex + 1).Trim();
             }
 
             return string.Empty;
