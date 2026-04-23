@@ -4,6 +4,8 @@
 **/obj/
 **/App_Data/*.mdf
 **/App_Data/*.ldf
+/DramaMurderGraduationDb*.mdf
+/DramaMurderGraduationDb*.ldf
 **/iisexpress-*.log
 **/ImportedScripts/
 **/Uploads/

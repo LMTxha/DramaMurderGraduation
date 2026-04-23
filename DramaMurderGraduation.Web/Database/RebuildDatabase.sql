@@ -1,5 +1,5 @@
 :setvar DatabaseName "DramaMurderGraduationDb"
-:setvar DatabaseDirectory "D:\毕业设计\dramamurder\DramaMurderGraduation.Web\App_Data"
+:setvar DatabaseDirectory "D:\毕业设计\dramamurder"
 :setvar SeedScript "D:\毕业设计\dramamurder\DramaMurderGraduation.Web\Database\DramaMurder.sql"
 :setvar MockDataScript "D:\毕业设计\dramamurder\DramaMurderGraduation.Web\Database\SeedMockData.sql"
 :on error exit

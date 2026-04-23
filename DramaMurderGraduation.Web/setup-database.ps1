@@ -3,7 +3,7 @@ param(
 )
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$appDataPath = Join-Path $projectRoot 'App_Data'
+$appDataPath = Split-Path -Parent $projectRoot
 $databaseName = 'DramaMurderGraduationDb'
 $mdfPath = Join-Path $appDataPath ($databaseName + '.mdf')
 $ldfPath = Join-Path $appDataPath ($databaseName + '_log.ldf')
