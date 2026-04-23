@@ -1,4 +1,4 @@
-SET NOCOUNT ON;
+﻿SET NOCOUNT ON;
 
 IF OBJECT_ID(N'dbo.ShowcasePages', N'U') IS NULL
 BEGIN
@@ -80,6 +80,10 @@ BEGIN
     (N'机制阵营', N'包含阵营对抗、任务推进和多阶段信息差。'),
     (N'恐怖惊悚', N'灯光、音效和场景压迫感更强，适合沉浸体验。');
 END
+GO
+
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.SiteSettings)
@@ -165,6 +169,44 @@ BEGIN
 END
 GO
 
+DECLARE @AdditionalCharacters TABLE
+(
+    ScriptName NVARCHAR(80),
+    CharacterName NVARCHAR(50),
+    Gender NVARCHAR(20),
+    AgeRange NVARCHAR(20),
+    Profession NVARCHAR(50),
+    Personality NVARCHAR(100),
+    SecretLine NVARCHAR(100),
+    Description NVARCHAR(300)
+);
+
+INSERT INTO @AdditionalCharacters(ScriptName, CharacterName, Gender, AgeRange, Profession, Personality, SecretLine, Description)
+VALUES
+(N'长安夜宴', N'唐晏', N'男', N'28-35', N'御史', N'锋利审慎', N'他收到过密信，却没有上报。', N'负责监察夜宴礼制的御史。'),
+(N'长安夜宴', N'上官芮', N'女', N'24-30', N'舞姬', N'灵动果决', N'她能看懂乐师的错拍暗号。', N'夜宴献舞者，和乐师温照关系暧昧。'),
+(N'长安夜宴', N'叶疏影', N'女', N'30-40', N'医官', N'冷静细致', N'她接触过所有醒酒汤。', N'宫中医官，负责宴后诊治。'),
+(N'长安夜宴', N'崔砚', N'男', N'35-45', N'中书舍人', N'圆滑多疑', N'他的奏章被人替换过。', N'掌管文书流转的中书舍人。'),
+(N'白塔精神病院', N'林知微', N'女', N'26-32', N'值班医生', N'理性克制', N'她的值班记录被撕掉了一页。', N'白塔精神病院夜间值班医生。'),
+(N'白塔精神病院', N'沈鹤', N'男', N'40-50', N'院长', N'权威强硬', N'他知道三号实验室从未关闭。', N'精神病院院长，负责重启观察实验。'),
+(N'白塔精神病院', N'许南星', N'女', N'22-28', N'实习护士', N'敏感谨慎', N'她听见过封闭病区的录音。', N'刚入职不久的实习护士。'),
+(N'白塔精神病院', N'周祁', N'男', N'30-38', N'病患家属', N'焦躁直接', N'他来白塔不是为了探视。', N'失踪病患的家属。'),
+(N'白塔精神病院', N'白芷', N'女', N'25-35', N'心理咨询师', N'温柔疏离', N'她修改过一次催眠记录。', N'外聘心理咨询师。'),
+(N'白塔精神病院', N'何牧', N'男', N'32-42', N'保安', N'沉默警觉', N'他保留着停电当晚的备用钥匙。', N'负责白塔夜间巡查的保安。');
+
+INSERT INTO dbo.ScriptCharacters(ScriptId, Name, Gender, AgeRange, Profession, Personality, SecretLine, Description)
+SELECT s.Id, c.CharacterName, c.Gender, c.AgeRange, c.Profession, c.Personality, c.SecretLine, c.Description
+FROM @AdditionalCharacters c
+INNER JOIN dbo.Scripts s ON s.Name = c.ScriptName
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.ScriptCharacters existing
+    WHERE existing.ScriptId = s.Id
+      AND existing.Name = c.CharacterName
+);
+GO
+
 IF NOT EXISTS (SELECT 1 FROM dbo.Rooms)
 BEGIN
     INSERT INTO dbo.Rooms(Name, Theme, Capacity, Description, ImageUrl, Status)
@@ -204,29 +246,42 @@ BEGIN
 END
 GO
 
-IF NOT EXISTS
+;WITH MissingDemoSessions AS
 (
-    SELECT 1
-    FROM dbo.Sessions se
-    INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
-    WHERE s.Name = N'潮声熄灯时'
-      AND se.HostName = N'门店 DM 阿岚（六浏览器联测）'
-      AND se.SessionDateTime >= GETDATE()
-)
-BEGIN
-    INSERT INTO dbo.Sessions(ScriptId, RoomId, SessionDateTime, HostName, BasePrice, MaxPlayers, Status)
     SELECT
-        s.Id,
-        r.Id,
-        DATEADD(MINUTE, 19 * 60 + 30, CONVERT(DATETIME, CONVERT(DATE, DATEADD(DAY, 1, GETDATE())))),
-        N'门店 DM 阿岚（六浏览器联测）',
+        s.Id AS ScriptId,
         s.Price,
-        6,
-        N'开放预约'
+        s.PlayerMax,
+        ROW_NUMBER() OVER (ORDER BY s.Id) AS RowNumber
     FROM dbo.Scripts s
-    CROSS APPLY (SELECT TOP 1 Id FROM dbo.Rooms WHERE Name = N'长夜 B 厅') r
-    WHERE s.Name = N'潮声熄灯时';
-END
+    WHERE s.AuditStatus = N'Approved'
+      AND NOT EXISTS
+      (
+          SELECT 1
+          FROM dbo.Sessions se
+          WHERE se.ScriptId = s.Id
+            AND se.HostName LIKE N'%联测%'
+            AND se.SessionDateTime >= GETDATE()
+      )
+)
+INSERT INTO dbo.Sessions(ScriptId, RoomId, SessionDateTime, HostName, BasePrice, MaxPlayers, Status)
+SELECT
+    missing.ScriptId,
+    roomPick.Id,
+    DATEADD(DAY, missing.RowNumber, DATEADD(MINUTE, 19 * 60 + 30, CONVERT(DATETIME, CONVERT(DATE, DATEADD(DAY, 1, GETDATE()))))),
+    N'门店 DM 阿岚（随机角色联测）',
+    missing.Price,
+    missing.PlayerMax,
+    N'开放预约'
+FROM MissingDemoSessions missing
+CROSS APPLY
+(
+    SELECT TOP 1 Id
+    FROM dbo.Rooms
+    WHERE Status = N'可预约'
+      AND Capacity >= missing.PlayerMax
+    ORDER BY Capacity ASC, Id ASC
+) roomPick;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.WalletTransactions)
