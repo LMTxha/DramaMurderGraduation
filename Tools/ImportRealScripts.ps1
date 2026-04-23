@@ -1,11 +1,13 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$SourceRoot,
 
     [Parameter(Mandatory = $true)]
     [string]$SiteRoot,
 
-    [string]$ConnectionString = 'Data Source=(LocalDB)\MSSQLLocalDB;Initial Catalog=DramaMurderGraduationDb_Text2;User ID=sa;Password=123456;Connect Timeout=30;MultipleActiveResultSets=True'
+    [string]$ConnectionString = 'Data Source=(LocalDB)\MSSQLLocalDB;Initial Catalog=DramaMurderGraduationDb;Integrated Security=True;Connect Timeout=30;MultipleActiveResultSets=True',
+
+    [switch]$RefreshFiles
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,14 +57,18 @@ function Get-AssetType([System.IO.FileInfo]$file, [System.IO.FileInfo]$manual, [
 function Get-PrimaryManual([System.IO.FileInfo[]]$files) {
     return $files |
         Where-Object { (Get-LowerExtension $_) -in '.pdf', '.docx' } |
-        Sort-Object FullName |
+        Sort-Object @{ Expression = {
+            if ($_.Name -match '主持|手册|开本|须知|真相') { 0 } else { 1 }
+        } }, FullName |
         Select-Object -First 1
 }
 
 function Get-CoverImage([System.IO.FileInfo[]]$files) {
     return $files |
         Where-Object { (Get-LowerExtension $_) -in '.jpg', '.png' } |
-        Sort-Object FullName |
+        Sort-Object @{ Expression = {
+            if ($_.FullName -match '海报|宣传|封面|立绘') { 0 } else { 1 }
+        } }, @{ Expression = 'Length'; Descending = $true }, FullName |
         Select-Object -First 1
 }
 
@@ -84,40 +90,67 @@ function Get-DifficultyLabel([System.IO.FileInfo[]]$files) {
     $hasAudio = ($files | Where-Object { (Get-LowerExtension $_) -eq '.mp3' } | Measure-Object).Count -gt 0
 
     if ($hasVideo) {
-        return 'Cinematic'
+        return '进阶'
     }
 
     if ($hasAudio) {
-        return 'Immersive'
+        return '沉浸'
     }
 
-    return 'Story'
+    return '本格'
 }
 
 function Get-GenreId([string]$name) {
-    if ($name.Length -gt 0 -and $name[0] -match '[A-Za-z0-9]') {
-        return 1
+    if ($name -match '怪谈|观白|精神|惊悚|恐怖') {
+        return 4
+    }
+
+    if ($name -match '红豆|绛夏|花束|离家|月光') {
+        return 2
+    }
+
+    if ($name -match '破界|双影|机制|阵营') {
+        return 3
     }
 
     return 1
 }
 
 function Get-PlayerCount([System.IO.FileInfo[]]$files, [string]$scriptName) {
-    $candidateNames = $files |
-        Where-Object { (Get-LowerExtension $_) -in '.pdf', '.docx' } |
-        ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name).Trim() } |
-        Where-Object {
-            $_ -and
-            $_.Length -le 40 -and
-            $_ -ne $scriptName
-        } |
-        Select-Object -Unique
+    $candidateNames = Get-CharacterNames $files $scriptName
 
     if ($candidateNames.Count -ge 4 -and $candidateNames.Count -le 12) {
         return [Math]::Min([int]$candidateNames.Count, 8)
     }
 
     return 6
+}
+
+function Get-CharacterNames([System.IO.FileInfo[]]$files, [string]$scriptName) {
+    $rolePathPattern = '(\\|/)(人物剧本|角色剧本|剧本)(\\|/)'
+    $blockedTitlePattern = '主持|手册|真相|线索|证据|开本|须知|流程|复盘|答案|组合|葬喜录|Q&A|勘误|指南|规则|地图|卡牌|通知'
+
+    $roleFiles = $files |
+        Where-Object {
+            (Get-LowerExtension $_) -in '.pdf', '.docx' -and
+            $_.FullName -match $rolePathPattern
+        }
+
+    if (($roleFiles | Measure-Object).Count -eq 0) {
+        $roleFiles = $files | Where-Object { (Get-LowerExtension $_) -in '.pdf', '.docx' }
+    }
+
+    return @($roleFiles |
+        ForEach-Object {
+            [System.IO.Path]::GetFileNameWithoutExtension($_.Name).Trim() -replace '^\d+\s*[-._、]?\s*', ''
+        } |
+        Where-Object {
+            $_ -and
+            $_.Length -le 40 -and
+            $_ -ne $scriptName -and
+            $_ -notmatch $blockedTitlePattern
+        } |
+        Select-Object -Unique)
 }
 
 function New-DbCommand([System.Data.SqlClient.SqlConnection]$connection, [string]$sql) {
@@ -179,13 +212,15 @@ END;
         $slug = Get-StableSlug $scriptName
         $targetDir = Join-Path $packageRoot $slug
 
-        if (Test-Path -LiteralPath $targetDir) {
+        if ((Test-Path -LiteralPath $targetDir) -and $RefreshFiles) {
             Remove-Item -LiteralPath $targetDir -Recurse -Force
         }
 
-        New-Item -ItemType Directory -Path $targetDir | Out-Null
-        Get-ChildItem -LiteralPath $dir.FullName -Force |
-            Copy-Item -Destination $targetDir -Recurse -Force
+        if (-not (Test-Path -LiteralPath $targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir | Out-Null
+            Get-ChildItem -LiteralPath $dir.FullName -Force |
+                Copy-Item -Destination $targetDir -Recurse -Force
+        }
 
         $files = Get-ChildItem -LiteralPath $targetDir -Recurse -File | Sort-Object FullName
         $manual = Get-PrimaryManual $files
@@ -197,8 +232,8 @@ END;
         $mediaCount = ($files | Where-Object { (Get-LowerExtension $_) -in '.mp3', '.mp4', '.mov' } | Measure-Object).Count
         $difficulty = Get-DifficultyLabel $files
         $genreId = Get-GenreId $scriptName
-        $duration = if ($difficulty -eq 'Cinematic') { 300 } elseif ($difficulty -eq 'Immersive') { 240 } else { 270 }
-        $price = if ($difficulty -eq 'Cinematic') { 228.00 } elseif ($difficulty -eq 'Immersive') { 208.00 } else { 198.00 }
+        $duration = if ($difficulty -eq '进阶') { 300 } elseif ($difficulty -eq '沉浸') { 240 } else { 270 }
+        $price = if ($difficulty -eq '进阶') { 228.00 } elseif ($difficulty -eq '沉浸') { 208.00 } else { 198.00 }
 
         $coverUrl = ''
         if ($cover) {
@@ -206,15 +241,15 @@ END;
             $coverUrl = 'ImportedScripts/' + $slug + '/' + $coverRelative
         }
 
-        $manualLabel = if ($manual) { $manual.Name } else { 'No document detected' }
-        $storyBackground = "Original playable script package imported intact. Files indexed: PDFs=$pdfCount, Images=$imageCount, Media=$mediaCount."
+        $manualLabel = if ($manual) { $manual.Name } else { '未检测到主文档' }
+        $storyBackground = "本剧本由本地完整资料包导入，已保留 PDF、图片、音频、视频等原始文件，并建立可浏览的资料索引。资料统计：PDF $pdfCount 个，图片 $imageCount 个，音视频 $mediaCount 个。"
         $fullContent = @(
-            "Original script package: $scriptName"
-            "Package folder: ImportedScripts/$slug"
-            "Primary document: $manualLabel"
-            "Detected files: PDF=$pdfCount / Image=$imageCount / Media=$mediaCount"
+            "本地导入剧本：$scriptName"
+            "资料目录：ImportedScripts/$slug"
+            "主文档：$manualLabel"
+            "文件统计：PDF=$pdfCount / 图片=$imageCount / 音视频=$mediaCount"
             ''
-            'Original file index:'
+            '原始资料索引：'
         ) + ($files | ForEach-Object {
             $relative = $_.FullName.Substring($targetDir.Length).TrimStart('\')
             "- $relative"
@@ -272,7 +307,7 @@ SELECT @ScriptId;
             $upsert.Transaction = $transaction
             $upsert.Parameters.AddWithValue('@GenreId', $genreId) | Out-Null
             $upsert.Parameters.AddWithValue('@Name', $scriptName) | Out-Null
-            $upsert.Parameters.AddWithValue('@Slogan', 'Original package imported without content rewrite') | Out-Null
+            $upsert.Parameters.AddWithValue('@Slogan', "本地完整资料包导入，含角色本、主持资料和多媒体素材。") | Out-Null
             $upsert.Parameters.AddWithValue('@StoryBackground', $storyBackground) | Out-Null
             $upsert.Parameters.AddWithValue('@FullScriptContent', $manifest) | Out-Null
             $upsert.Parameters.AddWithValue('@CoverImage', $coverUrl) | Out-Null
@@ -282,8 +317,8 @@ SELECT @ScriptId;
             $upsert.Parameters.AddWithValue('@Difficulty', $difficulty) | Out-Null
             $upsert.Parameters.AddWithValue('@Price', [decimal]$price) | Out-Null
             $upsert.Parameters.AddWithValue('@Status', $statusOpen) | Out-Null
-            $upsert.Parameters.AddWithValue('@AuthorName', 'Original Package Import') | Out-Null
-            $upsert.Parameters.AddWithValue('@AuditComment', 'Bulk imported from local playable package library.') | Out-Null
+            $upsert.Parameters.AddWithValue('@AuthorName', '本地资料导入') | Out-Null
+            $upsert.Parameters.AddWithValue('@AuditComment', '从本地剧本杀资料库批量导入。') | Out-Null
             $scriptId = [int]$upsert.ExecuteScalar()
 
             $cleanupAssets = New-DbCommand $connection "DELETE FROM dbo.ScriptAssets WHERE ScriptId = @ScriptId;"
@@ -291,10 +326,11 @@ SELECT @ScriptId;
             $cleanupAssets.Parameters.AddWithValue('@ScriptId', $scriptId) | Out-Null
             $cleanupAssets.ExecuteNonQuery() | Out-Null
 
-            $cleanupCharacters = New-DbCommand $connection "DELETE FROM dbo.ScriptCharacters WHERE ScriptId = @ScriptId AND Profession = @Profession;"
+            $cleanupCharacters = New-DbCommand $connection "DELETE FROM dbo.ScriptCharacters WHERE ScriptId = @ScriptId AND Profession IN (@LegacyProfession, @CurrentProfession);"
             $cleanupCharacters.Transaction = $transaction
             $cleanupCharacters.Parameters.AddWithValue('@ScriptId', $scriptId) | Out-Null
-            $cleanupCharacters.Parameters.AddWithValue('@Profession', 'Imported Package') | Out-Null
+            $cleanupCharacters.Parameters.AddWithValue('@LegacyProfession', 'Imported Package') | Out-Null
+            $cleanupCharacters.Parameters.AddWithValue('@CurrentProfession', '本地资料导入') | Out-Null
             $cleanupCharacters.ExecuteNonQuery() | Out-Null
 
             $sort = 1
@@ -325,19 +361,10 @@ VALUES
                 $sort++
             }
 
-            $characterNames = $files |
-                Where-Object { (Get-LowerExtension $_) -in '.pdf', '.docx' } |
-                ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name).Trim() } |
-                Where-Object {
-                    $_ -and
-                    $_.Length -le 40 -and
-                    $_ -ne $scriptName
-                } |
-                Select-Object -Unique |
-                Select-Object -First 12
+            $characterNames = Get-CharacterNames $files $scriptName | Select-Object -First 12
 
             if ($characterNames.Count -lt 4) {
-                $characterNames = 1..$playerCount | ForEach-Object { "Player $_" }
+                $characterNames = 1..$playerCount | ForEach-Object { "玩家 $_" }
             }
 
             foreach ($characterName in $characterNames) {
@@ -350,12 +377,12 @@ VALUES
                 $insertCharacter.Transaction = $transaction
                 $insertCharacter.Parameters.AddWithValue('@ScriptId', $scriptId) | Out-Null
                 $insertCharacter.Parameters.AddWithValue('@Name', $characterName) | Out-Null
-                $insertCharacter.Parameters.AddWithValue('@Gender', 'Unknown') | Out-Null
-                $insertCharacter.Parameters.AddWithValue('@AgeRange', 'See original package') | Out-Null
-                $insertCharacter.Parameters.AddWithValue('@Profession', 'Imported Package') | Out-Null
-                $insertCharacter.Parameters.AddWithValue('@Personality', 'See original package') | Out-Null
-                $insertCharacter.Parameters.AddWithValue('@SecretLine', 'See original package') | Out-Null
-                $insertCharacter.Parameters.AddWithValue('@Description', 'Original role data is preserved inside the imported package files.') | Out-Null
+                $insertCharacter.Parameters.AddWithValue('@Gender', '未标注') | Out-Null
+                $insertCharacter.Parameters.AddWithValue('@AgeRange', '详见原始角色本') | Out-Null
+                $insertCharacter.Parameters.AddWithValue('@Profession', '本地资料导入') | Out-Null
+                $insertCharacter.Parameters.AddWithValue('@Personality', '详见原始角色本') | Out-Null
+                $insertCharacter.Parameters.AddWithValue('@SecretLine', '详见原始角色本') | Out-Null
+                $insertCharacter.Parameters.AddWithValue('@Description', '角色详细内容保存在已导入的原始剧本资料文件中。') | Out-Null
                 $insertCharacter.ExecuteNonQuery() | Out-Null
             }
 

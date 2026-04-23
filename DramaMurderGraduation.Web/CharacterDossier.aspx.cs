@@ -125,7 +125,13 @@ namespace DramaMurderGraduation.Web
                 }
 
                 var relativePath = (asset.RelativePath ?? string.Empty).Replace('\\', '/');
-                var isRoleBook = relativePath.StartsWith("剧本/", StringComparison.Ordinal) || relativePath.IndexOf("/剧本/", StringComparison.Ordinal) >= 0;
+                var isRoleBook =
+                    relativePath.StartsWith("剧本/", StringComparison.Ordinal) ||
+                    relativePath.StartsWith("人物剧本/", StringComparison.Ordinal) ||
+                    relativePath.StartsWith("角色剧本/", StringComparison.Ordinal) ||
+                    relativePath.IndexOf("/剧本/", StringComparison.Ordinal) >= 0 ||
+                    relativePath.IndexOf("/人物剧本/", StringComparison.Ordinal) >= 0 ||
+                    relativePath.IndexOf("/角色剧本/", StringComparison.Ordinal) >= 0;
                 var normalizedTitle = NormalizeAssetName(asset.Title);
                 var normalizedFileName = NormalizeAssetName(Path.GetFileNameWithoutExtension(asset.FileName ?? string.Empty));
 
@@ -150,12 +156,19 @@ namespace DramaMurderGraduation.Web
                 return string.Empty;
             }
 
-            return value
+            var normalized = value
                 .Replace(" ", string.Empty)
                 .Replace("　", string.Empty)
                 .Replace(".pdf", string.Empty)
                 .Trim()
                 .ToLowerInvariant();
+
+            while (normalized.Length > 0 && char.IsDigit(normalized[0]))
+            {
+                normalized = normalized.Substring(1);
+            }
+
+            return normalized.TrimStart('-', '_', '.', '、');
         }
 
         private static string GetGuideTitle(string stageKey, bool isEnded)
