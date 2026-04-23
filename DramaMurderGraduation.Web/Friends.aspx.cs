@@ -746,11 +746,20 @@ namespace DramaMurderGraduation.Web
             return HasSelectedFriend && SelectedFriendSummary.IsPinned ? "取消置顶" : "置顶会话";
         }
 
-        public string GetChatBubbleClass(object senderUserId)
+        public string GetChatBubbleClass(object senderUserId, object messageType = null)
         {
-            return SafeToInt(senderUserId) == AuthManager.GetCurrentUser().UserId
+            var className = SafeToInt(senderUserId) == AuthManager.GetCurrentUser().UserId
                 ? "chat-message-bubble outgoing"
                 : "chat-message-bubble incoming";
+
+            var type = Convert.ToString(messageType);
+            if (string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(type, "Transfer", StringComparison.OrdinalIgnoreCase))
+            {
+                className += " money-bubble";
+            }
+
+            return className;
         }
 
         public string GetMessageTypeLabel(object value)

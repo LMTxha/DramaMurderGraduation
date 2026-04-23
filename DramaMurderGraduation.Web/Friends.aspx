@@ -357,7 +357,7 @@
                 <div class="wechat-message-thread">
                     <asp:Repeater ID="rptConversation" runat="server" OnItemCommand="rptConversation_ItemCommand">
                         <ItemTemplate>
-                            <article class='<%# GetChatBubbleClass(Eval("SenderUserId")) %>'>
+                            <article class='<%# GetChatBubbleClass(Eval("SenderUserId"), Eval("MessageType")) %>'>
                                                     <img class="wx-message-avatar" src='<%# GetAvatarUrl(Eval("SenderAvatarUrl")) %>' alt='<%# Eval("SenderDisplayName") %>' />
                                 <div class="wx-bubble-body">
                                     <div class="chat-bubble-head">
