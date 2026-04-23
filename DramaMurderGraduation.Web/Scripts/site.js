@@ -54,6 +54,108 @@
             }
         });
     });
+
+    document.querySelectorAll("[data-recommendation-carousel]").forEach(function (carousel) {
+        var items = Array.prototype.slice.call(carousel.querySelectorAll("[data-carousel-item]"));
+        var dotsHost = carousel.querySelector("[data-carousel-dots]");
+        var prevButton = carousel.querySelector("[data-carousel-prev]");
+        var nextButton = carousel.querySelector("[data-carousel-next]");
+        var intervalMs = parseInt(carousel.getAttribute("data-interval"), 10) || 20000;
+        var activeIndex = 0;
+        var timer = null;
+        var dots = [];
+
+        if (items.length <= 1) {
+            carousel.classList.add("single-item");
+            return;
+        }
+
+        var getVisibleCount = function () {
+            return window.matchMedia("(max-width: 760px)").matches ? 1 : 2;
+        };
+
+        var isVisible = function (itemIndex, visibleCount) {
+            for (var offset = 0; offset < visibleCount; offset += 1) {
+                if ((activeIndex + offset) % items.length === itemIndex) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        var render = function () {
+            var visibleCount = Math.min(getVisibleCount(), items.length);
+            items.forEach(function (item, index) {
+                var active = isVisible(index, visibleCount);
+                item.classList.toggle("is-active", active);
+                item.setAttribute("aria-hidden", active ? "false" : "true");
+            });
+
+            dots.forEach(function (dot, index) {
+                var active = index === activeIndex;
+                dot.classList.toggle("is-active", active);
+                dot.setAttribute("aria-current", active ? "true" : "false");
+            });
+        };
+
+        var goTo = function (index) {
+            activeIndex = (index + items.length) % items.length;
+            render();
+        };
+
+        var restart = function () {
+            if (timer) {
+                window.clearInterval(timer);
+            }
+
+            timer = window.setInterval(function () {
+                goTo(activeIndex + 1);
+            }, intervalMs);
+        };
+
+        if (dotsHost) {
+            items.forEach(function (_item, index) {
+                var dot = document.createElement("button");
+                dot.type = "button";
+                dot.className = "recommendation-dot";
+                dot.setAttribute("aria-label", "切换到第 " + (index + 1) + " 个推荐");
+                dot.addEventListener("click", function () {
+                    goTo(index);
+                    restart();
+                });
+                dotsHost.appendChild(dot);
+                dots.push(dot);
+            });
+        }
+
+        if (prevButton) {
+            prevButton.addEventListener("click", function () {
+                goTo(activeIndex - 1);
+                restart();
+            });
+        }
+
+        if (nextButton) {
+            nextButton.addEventListener("click", function () {
+                goTo(activeIndex + 1);
+                restart();
+            });
+        }
+
+        carousel.addEventListener("mouseenter", function () {
+            if (timer) {
+                window.clearInterval(timer);
+            }
+        });
+
+        carousel.addEventListener("mouseleave", restart);
+        window.addEventListener("resize", render);
+
+        carousel.classList.add("initialized");
+        render();
+        restart();
+    });
 })();
 
 (function () {

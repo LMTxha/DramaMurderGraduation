@@ -80,10 +80,16 @@
                 <h2>今日推荐</h2>
                 <p>精选沉浸、推理、机制等不同类型的剧本，点开就能直达详情或预约入口。</p>
             </div>
-            <div class="card-grid featured-grid">
+            <div class="recommendation-carousel" data-recommendation-carousel data-interval="20000">
+                <div class="recommendation-carousel-toolbar" aria-label="今日推荐轮播控制">
+                    <button type="button" class="recommendation-nav-button" data-carousel-prev aria-label="上一组推荐" title="上一组推荐">&lsaquo;</button>
+                    <div class="recommendation-dots" data-carousel-dots aria-label="推荐剧本位置"></div>
+                    <button type="button" class="recommendation-nav-button" data-carousel-next aria-label="下一组推荐" title="下一组推荐">&rsaquo;</button>
+                </div>
+                <div class="card-grid featured-grid recommendation-track" data-carousel-track aria-live="polite">
                 <asp:Repeater ID="rptFeaturedScripts" runat="server">
                     <ItemTemplate>
-                        <article class="script-card featured-script-card">
+                        <article class="script-card featured-script-card recommendation-slide" data-carousel-item>
                             <img src='<%# Eval("CoverImage") %>' alt='<%# Eval("Name") %>' />
                             <div class="card-body">
                                 <div class="card-meta">
@@ -106,6 +112,7 @@
                         </article>
                     </ItemTemplate>
                 </asp:Repeater>
+                </div>
             </div>
         </div>
     </section>

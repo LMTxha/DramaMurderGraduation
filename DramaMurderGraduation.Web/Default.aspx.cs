@@ -31,7 +31,7 @@ namespace DramaMurderGraduation.Web
             rptAnnouncements.DataSource = repository.GetAnnouncements(3);
             rptAnnouncements.DataBind();
 
-            rptFeaturedScripts.DataSource = repository.GetFeaturedScripts(4);
+            rptFeaturedScripts.DataSource = repository.GetScripts(string.Empty, null);
             rptFeaturedScripts.DataBind();
 
             rptUpcomingSessions.DataSource = repository.GetUpcomingSessions(5);

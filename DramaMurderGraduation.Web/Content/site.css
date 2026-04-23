@@ -716,6 +716,96 @@ p {
     overflow: hidden;
 }
 
+.recommendation-carousel {
+    display: grid;
+    gap: 16px;
+}
+
+.recommendation-carousel-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    min-height: 42px;
+}
+
+.recommendation-nav-button,
+.recommendation-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(124, 108, 255, 0.14);
+    background: rgba(255, 255, 255, 0.84);
+    color: var(--primary-dark);
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+.recommendation-nav-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.recommendation-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.recommendation-dot {
+    width: 18px;
+    height: 10px;
+    padding: 0;
+    border-radius: 999px;
+}
+
+.recommendation-nav-button:hover,
+.recommendation-nav-button:focus-visible,
+.recommendation-dot:hover,
+.recommendation-dot:focus-visible,
+.recommendation-dot.is-active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 12px 26px rgba(124, 108, 255, 0.22);
+    outline: none;
+}
+
+.recommendation-dot.is-active {
+    border-radius: 999px;
+}
+
+.recommendation-carousel:not(.initialized) .recommendation-carousel-toolbar {
+    display: none;
+}
+
+.recommendation-carousel.initialized .recommendation-slide {
+    display: none;
+}
+
+.recommendation-carousel.initialized .recommendation-slide.is-active {
+    display: block;
+    animation: recommendationFadeIn 0.38s ease both;
+}
+
+.recommendation-carousel.single-item .recommendation-carousel-toolbar {
+    display: none;
+}
+
+@keyframes recommendationFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .notice-tag,
 .review-tag,
 .clue-badge,
