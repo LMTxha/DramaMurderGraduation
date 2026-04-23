@@ -2453,6 +2453,7 @@ DECLARE @SenderBalance DECIMAL(10,2);
 DECLARE @SenderBalanceAfter DECIMAL(10,2);
 DECLARE @ReceiverBalanceAfter DECIMAL(10,2);
 DECLARE @TransferLabel NVARCHAR(20);
+DECLARE @ReceiverExists INT;
 
   IF @SenderUserId = @ReceiverUserId
   BEGIN
@@ -2478,6 +2479,12 @@ BEGIN
     RETURN;
 END;
 
+IF @Amount > 20000
+BEGIN
+    RAISERROR(N'单笔金额不能超过 20000 元。', 16, 1);
+    RETURN;
+END;
+
 IF NOT EXISTS
 (
     SELECT 1
@@ -2496,9 +2503,19 @@ SELECT @SenderBalance = Balance
 FROM dbo.Users WITH (UPDLOCK, HOLDLOCK)
 WHERE Id = @SenderUserId;
 
+SELECT @ReceiverExists = COUNT(1)
+FROM dbo.Users WITH (UPDLOCK, HOLDLOCK)
+WHERE Id = @ReceiverUserId;
+
 IF @SenderBalance IS NULL
 BEGIN
     RAISERROR(N'未找到当前账号。', 16, 1);
+    RETURN;
+END;
+
+IF ISNULL(@ReceiverExists, 0) = 0
+BEGIN
+    RAISERROR(N'未找到接收好友账号。', 16, 1);
     RETURN;
 END;
 
@@ -2510,11 +2527,24 @@ END;
 
 UPDATE dbo.Users
 SET Balance = Balance - @Amount
-WHERE Id = @SenderUserId;
+WHERE Id = @SenderUserId
+  AND Balance >= @Amount;
+
+IF @@ROWCOUNT = 0
+BEGIN
+    RAISERROR(N'余额不足，请先去钱包中心充值。', 16, 1);
+    RETURN;
+END;
 
 UPDATE dbo.Users
 SET Balance = Balance + @Amount
 WHERE Id = @ReceiverUserId;
+
+IF @@ROWCOUNT = 0
+BEGIN
+    RAISERROR(N'接收方余额入账失败，请稍后再试。', 16, 1);
+    RETURN;
+END;
 
 SELECT @SenderBalanceAfter = Balance
 FROM dbo.Users
@@ -2528,10 +2558,10 @@ INSERT INTO dbo.FriendMoneyTransfers(SenderUserId, ReceiverUserId, TransferType,
 VALUES(@SenderUserId, @ReceiverUserId, @TransferType, @Amount, NULLIF(@Note, N''), GETDATE());
 
 INSERT INTO dbo.WalletTransactions(UserId, TransactionType, Amount, BalanceAfter, Summary, CreatedAt)
-VALUES(@SenderUserId, @TransferLabel + N'支出', @Amount, @SenderBalanceAfter, N'好友互动资金流转', GETDATE());
+VALUES(@SenderUserId, @TransferLabel + N'支出', -@Amount, @SenderBalanceAfter, @TransferLabel + N'已发出，现金余额实时扣减', GETDATE());
 
 INSERT INTO dbo.WalletTransactions(UserId, TransactionType, Amount, BalanceAfter, Summary, CreatedAt)
-VALUES(@ReceiverUserId, @TransferLabel + N'收入', @Amount, @ReceiverBalanceAfter, N'好友互动资金流转', GETDATE());
+VALUES(@ReceiverUserId, @TransferLabel + N'收入', @Amount, @ReceiverBalanceAfter, @TransferLabel + N'已到账，现金余额实时增加', GETDATE());
 
 INSERT INTO dbo.FriendMessages(SenderUserId, ReceiverUserId, MessageType, Content, AttachmentUrl, LocationText, CreatedAt)
 VALUES(@SenderUserId, @ReceiverUserId, @TransferType, @TransferLabel + N' ￥' + CONVERT(NVARCHAR(20), CAST(@Amount AS DECIMAL(10,2))) + CASE WHEN NULLIF(@Note, N'') IS NULL THEN N'' ELSE N' · ' + @Note END, NULL, NULL, GETDATE());";

@@ -296,18 +296,32 @@
                     <section class="wx-card" id="transfer-panel">
                         <h2>红包 / 转账</h2>
                         <asp:Panel ID="pnlTransferMessage" runat="server" Visible="false" CssClass="status-message"><asp:Literal ID="litTransferMessage" runat="server" /></asp:Panel>
-                        <asp:DropDownList ID="ddlTransferReceiver" runat="server" CssClass="wx-input" />
-                        <asp:DropDownList ID="ddlTransferType" runat="server" CssClass="wx-input" />
-                        <asp:TextBox ID="txtTransferAmount" runat="server" CssClass="wx-input" Text="6.60" />
-                        <asp:TextBox ID="txtTransferNote" runat="server" CssClass="wx-input" placeholder="备注" />
-                        <asp:Button ID="btnSendTransfer" runat="server" Text="发送红包 / 转账" CssClass="wx-primary-btn" OnClick="btnSendTransfer_Click" />
+                        <div class="wx-money-composer">
+                            <div class="wx-money-row">
+                                <asp:DropDownList ID="ddlTransferReceiver" runat="server" CssClass="wx-input" />
+                                <asp:DropDownList ID="ddlTransferType" runat="server" CssClass="wx-input" />
+                            </div>
+                            <div class="wx-money-amount">
+                                <span>￥</span>
+                                <asp:TextBox ID="txtTransferAmount" runat="server" CssClass="wx-money-input" Text="6.60" />
+                            </div>
+                            <asp:TextBox ID="txtTransferNote" runat="server" CssClass="wx-input" placeholder="备注" />
+                            <div class="wx-money-preview">
+                                <span class="wx-money-preview-icon">￥</span>
+                                <div>
+                                    <strong>好友资金互动</strong>
+                                    <small>现金余额</small>
+                                </div>
+                            </div>
+                            <asp:Button ID="btnSendTransfer" runat="server" Text="发送红包 / 转账" CssClass="wx-primary-btn wx-money-submit" OnClick="btnSendTransfer_Click" />
+                        </div>
                     </section>
                 </div>
                 <section class="wx-card">
                     <h2>最近资金互动</h2>
                     <asp:Repeater ID="rptTransferRecords" runat="server">
                         <ItemTemplate>
-                            <article class="wx-request-card">
+                            <article class='<%# GetTransferRecordClass(Eval("TransferType")) %>'>
                                 <strong><%# GetTransferLabel(Eval("TransferType")) %> · ￥<%# Eval("Amount", "{0:F2}") %></strong>
                                 <p><%# Eval("SenderDisplayName") %> → <%# Eval("ReceiverDisplayName") %></p>
                                 <small><%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("Note"))) ? "未填写备注" : Eval("Note") %> · <%# Eval("CreatedAt", "{0:MM-dd HH:mm}") %></small>
@@ -350,7 +364,7 @@
                                         <strong><%# Eval("SenderDisplayName") %></strong>
                                         <span><%# GetMessageTypeLabel(Eval("MessageType")) %> · <%# Eval("CreatedAt", "{0:MM-dd HH:mm}") %></span>
                                     </div>
-                                    <p><%# RenderHighlightedChatBody(Eval("Content"), Eval("IsRevoked")) %></p>
+                                    <%# RenderChatMessageContent(Eval("MessageType"), Eval("Content"), Eval("IsRevoked")) %>
                                     <%# RenderChatAttachment(Eval("AttachmentUrl")) %>
                                     <%# RenderHighlightedChatLocation(Eval("LocationText")) %>
                                     <asp:LinkButton ID="btnRevokeMessage" runat="server" CssClass="wx-muted-link" Visible='<%# CanRevokeMessage(Eval("SenderUserId"), Eval("IsRevoked")) %>' CommandName="Revoke" CommandArgument='<%# Eval("Id") %>'>撤回</asp:LinkButton>

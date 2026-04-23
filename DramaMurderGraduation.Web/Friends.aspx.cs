@@ -330,6 +330,13 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
+            amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
+            if (amount > 20000M)
+            {
+                ShowMessage(pnlTransferMessage, litTransferMessage, "单笔金额不能超过 20000 元。", false);
+                return;
+            }
+
             var currentUser = AuthManager.GetCurrentUser();
             var success = _accountRepository.SendPeerTransfer(currentUser.UserId, receiverUserId, amount, ddlTransferType.SelectedValue, txtTransferNote.Text.Trim(), out var message);
             ShowMessage(pnlTransferMessage, litTransferMessage, message, success);
@@ -839,6 +846,13 @@ namespace DramaMurderGraduation.Web
             return string.Equals(Convert.ToString(transferType), "RedPacket", StringComparison.OrdinalIgnoreCase) ? "红包" : "转账";
         }
 
+        public string GetTransferRecordClass(object transferType)
+        {
+            return string.Equals(Convert.ToString(transferType), "RedPacket", StringComparison.OrdinalIgnoreCase)
+                ? "wx-request-card wx-transfer-record redpacket"
+                : "wx-request-card wx-transfer-record transfer";
+        }
+
         public string HtmlEncode(object value)
         {
             return HttpUtility.HtmlEncode(Convert.ToString(value));
@@ -852,6 +866,58 @@ namespace DramaMurderGraduation.Web
         public IHtmlString RenderHighlightedChatBody(object content, object isRevoked)
         {
             return new HtmlString(HighlightKeyword(GetChatBody(content, isRevoked), ConversationSearchKeyword));
+        }
+
+        public IHtmlString RenderChatMessageContent(object messageType, object content, object isRevoked)
+        {
+            if (isRevoked != null && isRevoked != DBNull.Value && Convert.ToBoolean(isRevoked))
+            {
+                return new HtmlString("<p>这条消息已被撤回。</p>");
+            }
+
+            var type = Convert.ToString(messageType);
+            if (string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(type, "Transfer", StringComparison.OrdinalIgnoreCase))
+            {
+                var rawContent = Convert.ToString(content);
+                var amountText = ExtractMoneyAmount(rawContent);
+                var label = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "微信红包" : "微信转账";
+                var status = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "已存入对方余额" : "已实时到账";
+                var icon = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "红" : "转";
+                var css = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "redpacket" : "transfer";
+                var note = StripMoneyPrefix(rawContent);
+
+                return new HtmlString(
+                    "<div class=\"wx-money-message " + css + "\">" +
+                    "<div class=\"wx-money-message-main\">" +
+                    "<span class=\"wx-money-message-icon\">" + icon + "</span>" +
+                    "<div><strong>" + HttpUtility.HtmlEncode(label) + "</strong>" +
+                    "<span>￥" + HttpUtility.HtmlEncode(amountText) + "</span></div>" +
+                    "</div>" +
+                    (string.IsNullOrWhiteSpace(note) ? string.Empty : "<p>" + HighlightKeyword(note, ConversationSearchKeyword) + "</p>") +
+                    "<small>" + status + "</small>" +
+                    "</div>");
+            }
+
+            return new HtmlString("<p>" + HighlightKeyword(GetChatBody(content, isRevoked), ConversationSearchKeyword) + "</p>");
+        }
+
+        private static string ExtractMoneyAmount(string content)
+        {
+            var match = Regex.Match(content ?? string.Empty, @"￥\s*(\d+(?:\.\d{1,2})?)");
+            return match.Success ? match.Groups[1].Value : "0.00";
+        }
+
+        private static string StripMoneyPrefix(string content)
+        {
+            var value = content ?? string.Empty;
+            var separatorIndex = value.IndexOf(" · ", StringComparison.Ordinal);
+            if (separatorIndex >= 0 && separatorIndex + 3 < value.Length)
+            {
+                return value.Substring(separatorIndex + 3).Trim();
+            }
+
+            return string.Empty;
         }
 
         public IHtmlString RenderHighlightedChatLocation(object locationText)
