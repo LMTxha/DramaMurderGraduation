@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{7D2E9F0B-4E6C-4F51-8B0F-1A4AF50C2E99}</ProjectGuid>
+    <ProjectTypeGuids>{349C5851-65DF-11DA-9384-00065B846F21};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <RootNamespace>DramaMurderGraduation.Web</RootNamespace>
+    <AssemblyName>DramaMurderGraduation.Web</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <UseIISExpress>true</UseIISExpress>
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication>enabled</IISExpressAnonymousAuthentication>
+    <IISExpressWindowsAuthentication>disabled</IISExpressWindowsAuthentication>
+    <IISExpressUseClassicPipelineMode>false</IISExpressUseClassicPipelineMode>
+    <UseGlobalApplicationHostFile />
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <LangVersion>latest</LangVersion>
+    <Use64BitIISExpress />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">17.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AiSearch.aspx.cs">
+      <DependentUpon>AiSearch.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="AiSearch.aspx.designer.cs">
+      <DependentUpon>AiSearch.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Data\AiGatewayClient.cs" />
+    <Compile Include="Models\AiConversationEntryInfo.cs" />
+    <Compile Include="Models\AiProviderOptionInfo.cs" />
+    <Compile Include="Models\AiResponseInfo.cs" />
+    <Compile Include="Models\AiSuggestionInfo.cs" />
+    <Compile Include="AdminReview.aspx.cs">
+      <DependentUpon>AdminReview.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="AdminReview.aspx.designer.cs">
+      <DependentUpon>AdminReview.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="CreatorCenter.aspx.cs">
+      <DependentUpon>CreatorCenter.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="CreatorCenter.aspx.designer.cs">
+      <DependentUpon>CreatorCenter.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Booking.aspx.cs">
+      <DependentUpon>Booking.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Booking.aspx.designer.cs">
+      <DependentUpon>Booking.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="CharacterDossier.aspx.cs">
+      <DependentUpon>CharacterDossier.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="CharacterDossier.aspx.designer.cs">
+      <DependentUpon>CharacterDossier.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Data\AccountRepository.cs" />
+    <Compile Include="Data\AuthManager.cs" />
+    <Compile Include="Data\ContentRepository.cs" />
+    <Compile Include="Data\DbHelper.cs" />
+    <Compile Include="Data\FeatureRepository.cs" />
+    <Compile Include="Data\FriendWorkspaceRepository.cs" />
+    <Compile Include="Data\GameRepository.cs" />
+    <Compile Include="Data\ShowcaseRepository.cs" />
+    <Compile Include="Data\SqlDatabaseInitializer.cs" />
+    <Compile Include="Analytics.aspx.cs">
+      <DependentUpon>Analytics.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Analytics.aspx.designer.cs">
+      <DependentUpon>Analytics.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Discover.aspx.cs">
+      <DependentUpon>Discover.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Discover.aspx.designer.cs">
+      <DependentUpon>Discover.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Download.aspx.cs">
+      <DependentUpon>Download.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Download.aspx.designer.cs">
+      <DependentUpon>Download.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="DmDashboard.aspx.cs">
+      <DependentUpon>DmDashboard.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="DmDashboard.aspx.designer.cs">
+      <DependentUpon>DmDashboard.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Friends.aspx.cs">
+      <DependentUpon>Friends.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Friends.aspx.designer.cs">
+      <DependentUpon>Friends.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="FriendProfile.aspx.cs">
+      <DependentUpon>FriendProfile.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="FriendProfile.aspx.designer.cs">
+      <DependentUpon>FriendProfile.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Default.aspx.cs">
+      <DependentUpon>Default.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Default.aspx.designer.cs">
+      <DependentUpon>Default.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="GameLobby.aspx.cs">
+      <DependentUpon>GameLobby.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="GameLobby.aspx.designer.cs">
+      <DependentUpon>GameLobby.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="GameResult.aspx.cs">
+      <DependentUpon>GameResult.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="GameResult.aspx.designer.cs">
+      <DependentUpon>GameResult.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="GameRoom.aspx.cs">
+      <DependentUpon>GameRoom.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="GameRoom.aspx.designer.cs">
+      <DependentUpon>GameRoom.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="GroupChat.aspx.cs">
+      <DependentUpon>GroupChat.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="GroupChat.aspx.designer.cs">
+      <DependentUpon>GroupChat.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Global.asax.cs">
+      <DependentUpon>Global.asax</DependentUpon>
+    </Compile>
+    <Compile Include="FeatureShowcasePage.cs">
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Login.aspx.cs">
+      <DependentUpon>Login.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Login.aspx.designer.cs">
+      <DependentUpon>Login.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Models\AnnouncementInfo.cs" />
+    <Compile Include="Models\AdminReplyLogInfo.cs" />
+    <Compile Include="Models\BookingCreateRequest.cs" />
+    <Compile Include="Models\BusinessActionLogInfo.cs" />
+    <Compile Include="Models\BlockedUserInfo.cs" />
+    <Compile Include="Models\AchievementInfo.cs" />
+    <Compile Include="Models\AnalyticsMetricInfo.cs" />
+    <Compile Include="Models\ChallengeInfo.cs" />
+    <Compile Include="Models\ChatGroupInfo.cs" />
+    <Compile Include="Models\ChatGroupMemberInfo.cs" />
+    <Compile Include="Models\ChatWorkspaceMessageInfo.cs" />
+    <Compile Include="Models\CompletionInsightInfo.cs" />
+    <Compile Include="Models\CurrentUserInfo.cs" />
+    <Compile Include="Models\DownloadOptionInfo.cs" />
+    <Compile Include="Models\DmSessionInfo.cs" />
+    <Compile Include="Models\EconomyInsightInfo.cs" />
+    <Compile Include="Models\FriendChatMessageInfo.cs" />
+    <Compile Include="Models\FriendChatSummaryInfo.cs" />
+    <Compile Include="Models\FriendInfo.cs" />
+    <Compile Include="Models\FriendMoneyTransferInfo.cs" />
+    <Compile Include="Models\FriendRequestInfo.cs" />
+    <Compile Include="Models\GenreInfo.cs" />
+    <Compile Include="Models\GiftCatalogInfo.cs" />
+    <Compile Include="Models\GiftStatsInfo.cs" />
+    <Compile Include="Models\GiftTransactionInfo.cs" />
+    <Compile Include="Models\GiftWalletTransactionInfo.cs" />
+    <Compile Include="Models\GameAssignmentInfo.cs" />
+    <Compile Include="Models\GameClueInfo.cs" />
+    <Compile Include="Models\GameHostClueOptionInfo.cs" />
+    <Compile Include="Models\GameRoomStateInfo.cs" />
+    <Compile Include="Models\GameSessionLifecycleInfo.cs" />
+    <Compile Include="Models\GameStageInfo.cs" />
+    <Compile Include="Models\GameActionLogInfo.cs" />
+    <Compile Include="Models\GamePlayerVoteInfo.cs" />
+    <Compile Include="Models\GameVoteSummaryInfo.cs" />
+    <Compile Include="Models\HeatmapZoneInfo.cs" />
+    <Compile Include="Models\IdentityOptionInfo.cs" />
+    <Compile Include="Models\LiveSessionInfo.cs" />
+    <Compile Include="Models\MembershipPlanInfo.cs" />
+    <Compile Include="Models\MomentCommentInfo.cs" />
+    <Compile Include="Models\MomentPostInfo.cs" />
+    <Compile Include="Models\PlayerAbilityInfo.cs" />
+    <Compile Include="Models\ScriptAssetInfo.cs" />
+    <Compile Include="Models\PlayerBattleRecordInfo.cs" />
+    <Compile Include="Models\PlayerProfileInfo.cs" />
+    <Compile Include="Models\QuickNoteInfo.cs" />
+    <Compile Include="Models\RechargeRequestInfo.cs" />
+    <Compile Include="Models\RecommendationInfo.cs" />
+    <Compile Include="Models\ReservationInfo.cs" />
+    <Compile Include="Models\ReviewInfo.cs" />
+    <Compile Include="Models\RoomMessageInfo.cs" />
+    <Compile Include="Models\RoomParticipantInfo.cs" />
+    <Compile Include="Models\RoomInfo.cs" />
+    <Compile Include="Models\ScriptCharacterInfo.cs" />
+    <Compile Include="Models\ScriptSubmissionRequest.cs" />
+    <Compile Include="Models\ScriptInfo.cs" />
+    <Compile Include="Models\SessionInfo.cs" />
+    <Compile Include="Models\ShowcaseEntryInfo.cs" />
+    <Compile Include="Models\ShowcasePageInfo.cs" />
+    <Compile Include="Models\ShowcaseSectionInfo.cs" />
+    <Compile Include="Models\ShowcaseStatInfo.cs" />
+    <Compile Include="Models\SiteMetrics.cs" />
+    <Compile Include="Models\SiteSettings.cs" />
+    <Compile Include="Models\SpectatorMessageInfo.cs" />
+    <Compile Include="Models\SpectatorModeInfo.cs" />
+    <Compile Include="Models\SpectatorRoomInfo.cs" />
+    <Compile Include="Models\UserAccountInfo.cs" />
+    <Compile Include="Models\UserDesktopSettingsInfo.cs" />
+    <Compile Include="Models\UserSettingsInfo.cs" />
+    <Compile Include="Models\UserRegistrationRequest.cs" />
+    <Compile Include="PlayerHub.aspx.cs">
+      <DependentUpon>PlayerHub.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="PlayerHub.aspx.designer.cs">
+      <DependentUpon>PlayerHub.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Register.aspx.cs">
+      <DependentUpon>Register.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Register.aspx.designer.cs">
+      <DependentUpon>Register.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Reviews.aspx.cs">
+      <DependentUpon>Reviews.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Reviews.aspx.designer.cs">
+      <DependentUpon>Reviews.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Rooms.aspx.cs">
+      <DependentUpon>Rooms.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Rooms.aspx.designer.cs">
+      <DependentUpon>Rooms.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="ScriptDetails.aspx.cs">
+      <DependentUpon>ScriptDetails.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="ScriptDetails.aspx.designer.cs">
+      <DependentUpon>ScriptDetails.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Settings.aspx.cs">
+      <DependentUpon>Settings.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Settings.aspx.designer.cs">
+      <DependentUpon>Settings.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="ScriptsList.aspx.cs">
+      <DependentUpon>ScriptsList.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="ScriptsList.aspx.designer.cs">
+      <DependentUpon>ScriptsList.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Site.Master.cs">
+      <DependentUpon>Site.Master</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Site.Master.designer.cs">
+      <DependentUpon>Site.Master</DependentUpon>
+    </Compile>
+    <Compile Include="StoreContact.aspx.cs">
+      <DependentUpon>StoreContact.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="StoreContact.aspx.designer.cs">
+      <DependentUpon>StoreContact.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Models\StoreVisitRequestInfo.cs" />
+    <Compile Include="Spectator.aspx.cs">
+      <DependentUpon>Spectator.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Spectator.aspx.designer.cs">
+      <DependentUpon>Spectator.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="UploadHelper.cs" />
+    <Compile Include="Wallet.aspx.cs">
+      <DependentUpon>Wallet.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Wallet.aspx.designer.cs">
+      <DependentUpon>Wallet.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Models\WalletTransactionInfo.cs" />
+    <Compile Include="Models\WorkspaceConversationInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AiSearch.aspx" />
+    <Content Include="Analytics.aspx" />
+    <Content Include="AdminReview.aspx" />
+    <Content Include="AR增强现实激活.aspx" />
+    <Content Include="Booking.aspx" />
+    <Content Include="CharacterDossier.aspx" />
+    <Content Include="Content\site.css" />
+    <Content Include="CreatorCenter.aspx" />
+    <Content Include="Database\DramaMurder.sql" />
+    <Content Include="Database\RebuildDatabase.sql" />
+    <Content Include="Database\SeedMockData.sql" />
+    <Content Include="Default.aspx" />
+    <Content Include="Discover.aspx" />
+    <Content Include="DmDashboard.aspx" />
+    <Content Include="Download.aspx" />
+    <Content Include="FriendProfile.aspx" />
+    <Content Include="Friends.aspx" />
+    <Content Include="GameLobby.aspx" />
+    <Content Include="GameResult.aspx" />
+    <Content Include="GameRoom.aspx" />
+    <Content Include="GroupChat.aspx" />
+    <Content Include="Global.asax" />
+    <Content Include="Login.aspx" />
+    <Content Include="PlayerHub.aspx" />
+    <Content Include="Register.aspx" />
+    <Content Include="Reviews.aspx" />
+    <Content Include="Rooms.aspx" />
+    <Content Include="ScriptDetails.aspx" />
+    <Content Include="Settings.aspx" />
+    <Content Include="Scripts\site.js" />
+    <Content Include="ScriptsList.aspx" />
+    <Content Include="setup-database.ps1" />
+    <Content Include="Site.Master" />
+    <Content Include="StoreContact.aspx" />
+    <Content Include="Spectator.aspx" />
+    <Content Include="Wallet.aspx" />
+    <Content Include="Web.config" />
+    <Content Include="专家模式设置.aspx" />
+    <Content Include="今日推荐.aspx" />
+    <Content Include="会员订阅服务管理.aspx" />
+    <Content Include="创作者工作台.aspx" />
+    <Content Include="剧情分支事件.aspx" />
+    <Content Include="剧本创作分成设置.aspx" />
+    <Content Include="剧本创作编辑器.aspx" />
+    <Content Include="剧本创作者档案.aspx" />
+    <Content Include="剧本发布设置.aspx" />
+    <Content Include="剧本完成率分析.aspx" />
+    <Content Include="剧本审核提交.aspx" />
+    <Content Include="剧本管理与版本控制.aspx" />
+    <Content Include="动态难度调节面板.aspx" />
+    <Content Include="历史版本查看器.aspx" />
+    <Content Include="场景搭建工具.aspx" />
+    <Content Include="实时协作面板.aspx" />
+    <Content Include="成就勋章墙.aspx" />
+    <Content Include="房间匹配加入.aspx" />
+    <Content Include="收益设置.aspx" />
+    <Content Include="数据分析看板.aspx" />
+    <Content Include="新手引导界面.aspx" />
+    <Content Include="普通玩家档案.aspx" />
+    <Content Include="正在直播的游戏列表.aspx" />
+    <Content Include="沉浸式游戏场景.aspx" />
+    <Content Include="游戏设置.aspx" />
+    <Content Include="游戏首页.aspx" />
+    <Content Include="物品交互界面.aspx" />
+    <Content Include="玩家行为热力图.aspx" />
+    <Content Include="用户档案管理.aspx" />
+    <Content Include="社区审核与评分.aspx" />
+    <Content Include="稀有道具交易市场管理.aspx" />
+    <Content Include="线索板.aspx" />
+    <Content Include="组队大厅.aspx" />
+    <Content Include="能力值详情.aspx" />
+    <Content Include="虚拟经济管理.aspx" />
+    <Content Include="观战模式选择.aspx" />
+    <Content Include="观战游戏视图.aspx" />
+    <Content Include="观战聊天互动.aspx" />
+    <Content Include="角色卡视图.aspx" />
+    <Content Include="解谜界面.aspx" />
+    <Content Include="谜题生成AI助手.aspx" />
+    <Content Include="谜题通过率统计.aspx" />
+    <Content Include="跨模式组队选择.aspx" />
+    <Content Include="身份选择.aspx" />
+    <Content Include="限时挑战大厅.aspx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="App_Code\" />
+    <Folder Include="App_Data\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349C5851-65DF-11DA-9384-00065B846F21}">
+        <WebProjectProperties>
+          <UseIIS>True</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>0</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost:5090/</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

@@ -1,0 +1,148 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="Site.Master.cs" Inherits="DramaMurderGraduation.Web.SiteMaster" %>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head runat="server">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+        <asp:ContentPlaceHolder ID="TitleContent" runat="server" />
+    </title>
+    <link rel="stylesheet" href="Content/site.css?v=20260420-booking-disabled-state" />
+</head>
+<body>
+    <form id="MainForm" runat="server">
+        <div class="page-backdrop">
+            <div class="backdrop-orb orb-one"></div>
+            <div class="backdrop-orb orb-two"></div>
+            <div class="backdrop-orb orb-three"></div>
+        </div>
+
+        <header class="site-header">
+            <div class="container site-header-shell">
+                <div class="header-row">
+                    <a class="brand" href="Default.aspx">
+                        <span class="brand-mark">DM</span>
+                        <span class="brand-copy">
+                            <strong><asp:Literal ID="litSiteName" runat="server" /></strong>
+                            <small>沉浸式剧本杀聚场</small>
+                        </span>
+                    </a>
+
+                    <button type="button" class="nav-toggle" data-nav-toggle>菜单</button>
+
+                    <div class="user-menu">
+                        <a class="download-top-link" href="Download.aspx">下载客户端</a>
+                        <asp:PlaceHolder ID="phAnonymous" runat="server">
+                            <a class="auth-top-link login-top-link" href="Login.aspx">登录</a>
+                            <a class="auth-top-link register-top-link" href="Register.aspx">注册</a>
+                        </asp:PlaceHolder>
+
+                        <asp:PlaceHolder ID="phMemberMenu" runat="server" Visible="false">
+                            <a class="account-chip" href="Settings.aspx">
+                                <span class="account-avatar">玩</span>
+                                <span class="account-copy">
+                                    <strong><asp:Literal ID="litCurrentUserName" runat="server" /></strong>
+                                    <small>余额 ￥<asp:Literal ID="litCurrentBalance" runat="server" /></small>
+                                </span>
+                            </a>
+                            <asp:LinkButton ID="btnLogout" runat="server" CssClass="btn-secondary small" OnClick="btnLogout_Click">退出</asp:LinkButton>
+                        </asp:PlaceHolder>
+                    </div>
+                </div>
+
+                <div class="header-row compact" data-header-fold-body>
+                    <button type="button" class="header-fold-toggle" data-header-fold-toggle aria-expanded="true" title="收起顶部导航">
+                        <span class="header-fold-toggle-arrow" aria-hidden="true"></span>
+                    </button>
+                    <nav class="site-nav" data-nav>
+                        <a href="Default.aspx">首页</a>
+                        <a href="Discover.aspx">发现中心</a>
+                        <a href="Download.aspx">客户端下载</a>
+                        <a href="https://www.douyin.com">抖音入口</a>
+                        <a href="ScriptsList.aspx">剧本库</a>
+                        <a href="Rooms.aspx">房间场次</a>
+                        <a href="Booking.aspx">在线预约</a>
+                        <a href="StoreContact.aspx">门店联系</a>
+                        <a href="PlayerHub.aspx">玩家中心</a>
+                        <a href="https://chat.qwen.ai/">AI 助手</a>
+                        <asp:PlaceHolder ID="phSocialNav" runat="server" Visible="false">
+                            <a href="Friends.aspx"><asp:Literal ID="litSocialNavLabel" runat="server" /></a>
+                        </asp:PlaceHolder>
+                        <a href="Analytics.aspx">数据分析</a>
+                        <a href="Spectator.aspx">观战中心</a>
+                        <a href="Reviews.aspx">玩家点评</a>
+                        <asp:PlaceHolder ID="phLoggedIn" runat="server" Visible="false">
+                            <a href="Wallet.aspx">钱包中心</a>
+                            <a href="CreatorCenter.aspx">创作者中心</a>
+                            <a href="Settings.aspx">设置中心</a>
+                        </asp:PlaceHolder>
+                        <asp:PlaceHolder ID="phAdmin" runat="server" Visible="false">
+                            <a href="AdminReview.aspx">后台审核</a>
+                        </asp:PlaceHolder>
+                        <asp:PlaceHolder ID="phDm" runat="server" Visible="false">
+                            <a href="DmDashboard.aspx">DM 主持台</a>
+                        </asp:PlaceHolder>
+                    </nav>
+
+                    <div class="top-stats">
+                        <a class="stat-pill stat-link" href="ScriptsList.aspx">
+                            <span>剧本</span>
+                            <strong><asp:Literal ID="litHeaderScriptCount" runat="server" /></strong>
+                        </a>
+                        <a class="stat-pill stat-link" href="Rooms.aspx">
+                            <span>房间</span>
+                            <strong><asp:Literal ID="litHeaderRoomCount" runat="server" /></strong>
+                        </a>
+                        <a class="stat-pill stat-link" href="Booking.aspx">
+                            <span>预约</span>
+                            <strong><asp:Literal ID="litHeaderReservationCount" runat="server" /></strong>
+                        </a>
+                        <a class="stat-pill stat-link accent" href="Reviews.aspx">
+                            <span>评分</span>
+                            <strong><asp:Literal ID="litHeaderRating" runat="server" /></strong>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <asp:ContentPlaceHolder ID="MainContent" runat="server" />
+        </main>
+
+        <footer class="site-footer">
+            <div class="container footer-shell">
+                <section class="footer-brand">
+                    <div class="brand-mark footer-mark">DM</div>
+                    <div>
+                        <h3><asp:Literal ID="litFooterSiteName" runat="server" /></h3>
+                        <p>围绕选本、组局、预约、观战、好友互动和线下到店开本打造的沉浸式剧本杀空间。</p>
+                    </div>
+                </section>
+
+                <section class="footer-info">
+                    <div class="footer-card">
+                        <span class="footer-label">门店地址</span>
+                        <p><asp:Literal ID="litAddress" runat="server" /></p>
+                    </div>
+                    <div class="footer-card">
+                        <span class="footer-label">营业时间</span>
+                        <p><asp:Literal ID="litBusinessHours" runat="server" /></p>
+                    </div>
+                    <div class="footer-card">
+                        <span class="footer-label">联系门店</span>
+                        <p>电话：<asp:Literal ID="litPhone" runat="server" /></p>
+                        <p>账号：<asp:Literal ID="litWeChat" runat="server" /></p>
+                    </div>
+                </section>
+            </div>
+        </footer>
+    </form>
+
+    <script src="Scripts/site.js?v=20260421-dm-console"></script>
+</body>
+</html>
+
+
+
+
