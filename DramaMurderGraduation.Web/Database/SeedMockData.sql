@@ -188,6 +188,44 @@ BEGIN
     FROM dbo.Scripts s
     CROSS APPLY (SELECT TOP 1 Id FROM dbo.Rooms WHERE Name = N'朱雀宫宴厅') r
     WHERE s.Name = N'长安夜宴';
+
+    INSERT INTO dbo.Sessions(ScriptId, RoomId, SessionDateTime, HostName, BasePrice, MaxPlayers, Status)
+    SELECT
+        s.Id,
+        r.Id,
+        DATEADD(MINUTE, 19 * 60 + 30, CONVERT(DATETIME, CONVERT(DATE, DATEADD(DAY, 1, GETDATE())))),
+        N'门店 DM 阿岚（六浏览器联测）',
+        s.Price,
+        6,
+        N'开放预约'
+    FROM dbo.Scripts s
+    CROSS APPLY (SELECT TOP 1 Id FROM dbo.Rooms WHERE Name = N'长夜 B 厅') r
+    WHERE s.Name = N'潮声熄灯时';
+END
+GO
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Sessions se
+    INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
+    WHERE s.Name = N'潮声熄灯时'
+      AND se.HostName = N'门店 DM 阿岚（六浏览器联测）'
+      AND se.SessionDateTime >= GETDATE()
+)
+BEGIN
+    INSERT INTO dbo.Sessions(ScriptId, RoomId, SessionDateTime, HostName, BasePrice, MaxPlayers, Status)
+    SELECT
+        s.Id,
+        r.Id,
+        DATEADD(MINUTE, 19 * 60 + 30, CONVERT(DATETIME, CONVERT(DATE, DATEADD(DAY, 1, GETDATE())))),
+        N'门店 DM 阿岚（六浏览器联测）',
+        s.Price,
+        6,
+        N'开放预约'
+    FROM dbo.Scripts s
+    CROSS APPLY (SELECT TOP 1 Id FROM dbo.Rooms WHERE Name = N'长夜 B 厅') r
+    WHERE s.Name = N'潮声熄灯时';
 END
 GO
 
