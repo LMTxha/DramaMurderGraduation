@@ -377,9 +377,26 @@
                     <div class="wechat-toolbar">
                         <span>表</span><span>图</span><span>截</span><span>剪</span><span>音</span>
                         <a class="wx-tool-action wx-tool-gift" href="Friends.aspx?mode=wallet#gift-panel" title="送礼">礼</a>
-                        <a class="wx-tool-action wx-tool-redpacket" href="Friends.aspx?mode=wallet#transfer-panel" title="发红包">红</a>
-                        <a class="wx-tool-action wx-tool-transfer" href="Friends.aspx?mode=wallet#transfer-panel" title="转账">转</a>
+                        <button type="button" class="wx-tool-action wx-tool-redpacket" data-money-open="RedPacket" title="发红包">红</button>
+                        <button type="button" class="wx-tool-action wx-tool-transfer" data-money-open="Transfer" title="转账">转</button>
                         <asp:DropDownList ID="ddlChatMessageType" runat="server" CssClass="wx-mode-select" />
+                    </div>
+                    <asp:HiddenField ID="hdnChatMoneyType" runat="server" Value="RedPacket" ClientIDMode="Static" />
+                    <div class="wx-chat-money-sheet" data-money-sheet hidden>
+                        <div class="wx-chat-money-head">
+                            <strong data-money-heading>发红包</strong>
+                            <button type="button" class="wx-chat-money-close" data-money-close aria-label="关闭红包转账面板">×</button>
+                        </div>
+                        <div class="wx-chat-money-tabs">
+                            <button type="button" class="active" data-money-open="RedPacket">红包</button>
+                            <button type="button" data-money-open="Transfer">转账</button>
+                        </div>
+                        <label class="wx-chat-money-amount">
+                            <span>￥</span>
+                            <asp:TextBox ID="txtChatMoneyAmount" runat="server" ClientIDMode="Static" CssClass="wx-chat-money-input" Text="6.60" />
+                        </label>
+                        <asp:TextBox ID="txtChatMoneyNote" runat="server" ClientIDMode="Static" CssClass="wx-chat-money-note-input" placeholder="红包备注 / 转账说明" />
+                        <asp:Button ID="btnSendChatMoney" runat="server" ClientIDMode="Static" Text="发送红包" CssClass="wx-chat-money-send" OnClick="btnSendChatMoney_Click" />
                     </div>
                     <asp:TextBox ID="txtChatContent" runat="server" CssClass="wechat-compose" TextMode="MultiLine" Rows="4" placeholder="输入聊天内容..." />
                     <details class="wechat-compose-options">
@@ -454,6 +471,53 @@
             <asp:Literal ID="litMomentCountCard" runat="server" />
         </div>
     </section>
+    <script>
+        (function () {
+            var sheet = document.querySelector('[data-money-sheet]');
+            var hiddenType = document.getElementById('hdnChatMoneyType');
+            var sendButton = document.getElementById('btnSendChatMoney');
+            var heading = document.querySelector('[data-money-heading]');
+            var amountInput = document.getElementById('txtChatMoneyAmount');
+
+            function setMoneyMode(type) {
+                if (!sheet || !hiddenType) {
+                    return;
+                }
+
+                var isTransfer = type === 'Transfer';
+                hiddenType.value = isTransfer ? 'Transfer' : 'RedPacket';
+                sheet.hidden = false;
+                sheet.classList.toggle('transfer', isTransfer);
+                if (heading) {
+                    heading.textContent = isTransfer ? '转账' : '发红包';
+                }
+                if (sendButton) {
+                    sendButton.value = isTransfer ? '确认转账' : '发送红包';
+                }
+                document.querySelectorAll('[data-money-open]').forEach(function (button) {
+                    button.classList.toggle('active', button.getAttribute('data-money-open') === hiddenType.value);
+                });
+                if (amountInput) {
+                    amountInput.focus();
+                    amountInput.select();
+                }
+            }
+
+            document.addEventListener('click', function (event) {
+                var opener = event.target.closest('[data-money-open]');
+                if (opener) {
+                    event.preventDefault();
+                    setMoneyMode(opener.getAttribute('data-money-open'));
+                    return;
+                }
+
+                if (event.target.closest('[data-money-close]') && sheet) {
+                    event.preventDefault();
+                    sheet.hidden = true;
+                }
+            });
+        })();
+    </script>
 </asp:Content>
 
 

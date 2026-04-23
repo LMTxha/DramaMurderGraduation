@@ -349,6 +349,45 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        protected void btnSendChatMoney_Click(object sender, EventArgs e)
+        {
+            pnlChatMessage.Visible = true;
+
+            if (SelectedFriendSummary == null || SelectedFriendSummary.FriendUserId <= 0)
+            {
+                ShowMessage(pnlChatMessage, litChatMessage, "\u8bf7\u5148\u9009\u62e9\u8981\u804a\u5929\u7684\u597d\u53cb\u3002", false);
+                return;
+            }
+
+            if (!decimal.TryParse(txtChatMoneyAmount.Text, out var amount) || amount <= 0)
+            {
+                ShowMessage(pnlChatMessage, litChatMessage, "\u8bf7\u8f93\u5165\u6b63\u786e\u7684\u91d1\u989d\u3002", false);
+                return;
+            }
+
+            amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
+            if (amount > 20000M)
+            {
+                ShowMessage(pnlChatMessage, litChatMessage, "\u5355\u7b14\u91d1\u989d\u4e0d\u80fd\u8d85\u8fc7 20000 \u5143\u3002", false);
+                return;
+            }
+
+            var transferType = string.Equals(hdnChatMoneyType.Value, "Transfer", StringComparison.OrdinalIgnoreCase)
+                ? "Transfer"
+                : "RedPacket";
+            var currentUser = AuthManager.GetCurrentUser();
+            var success = _accountRepository.SendPeerTransfer(currentUser.UserId, SelectedFriendSummary.FriendUserId, amount, transferType, txtChatMoneyNote.Text.Trim(), out var message);
+            ShowMessage(pnlChatMessage, litChatMessage, message, success);
+            if (success)
+            {
+                txtChatMoneyAmount.Text = "6.60";
+                txtChatMoneyNote.Text = string.Empty;
+                hdnChatMoneyType.Value = transferType;
+            }
+
+            BindPage();
+        }
+
         protected void btnCreateMoment_Click(object sender, EventArgs e)
         {
             pnlMomentMessage.Visible = true;

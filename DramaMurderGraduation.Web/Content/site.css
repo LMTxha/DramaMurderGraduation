@@ -3242,12 +3242,14 @@ a.session-card {
     place-items: center;
     width: 34px;
     height: 34px;
+    border: 0;
     border-radius: 8px;
     color: #fff;
     font-size: 15px;
     font-weight: 800;
     line-height: 1;
     text-decoration: none;
+    cursor: pointer;
     box-shadow: 0 10px 24px rgba(139, 102, 217, 0.18);
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
@@ -3273,6 +3275,129 @@ a.session-card {
     margin-left: auto;
     padding: 6px 8px;
     background: #f5f5f5;
+}
+
+.wx-chat-money-sheet {
+    display: grid;
+    gap: 12px;
+    max-width: 420px;
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+    background: #fbfbfb;
+    box-shadow: 0 16px 34px rgba(28, 28, 28, 0.08);
+}
+
+.wx-chat-money-sheet[hidden] {
+    display: none;
+}
+
+.wx-chat-money-head,
+.wx-chat-money-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.wx-chat-money-head strong {
+    color: #1f1f1f;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.wx-chat-money-close {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: #eeeeee;
+    color: #666;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.wx-chat-money-tabs {
+    justify-content: flex-start;
+}
+
+.wx-chat-money-tabs button {
+    min-width: 74px;
+    height: 34px;
+    border: 0;
+    border-radius: 8px;
+    background: #ededed;
+    color: #555;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.wx-chat-money-tabs button.active {
+    background: #ff7f66;
+    color: #fff;
+}
+
+.wx-chat-money-sheet.transfer .wx-chat-money-tabs button.active {
+    background: #42b883;
+}
+
+.wx-chat-money-amount {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    min-height: 62px;
+    padding: 0 14px;
+    border: 1px solid #dedede;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.wx-chat-money-amount span {
+    color: #111;
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.wx-chat-money-input,
+.wx-chat-money-note-input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #111;
+}
+
+.wx-chat-money-input {
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.wx-chat-money-note-input {
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 16px;
+}
+
+.wx-chat-money-send {
+    min-height: 40px;
+    border: 0;
+    border-radius: 8px;
+    background: #ff7f66;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.wx-chat-money-sheet.transfer .wx-chat-money-send {
+    background: #42b883;
 }
 
 .wechat-compose {
