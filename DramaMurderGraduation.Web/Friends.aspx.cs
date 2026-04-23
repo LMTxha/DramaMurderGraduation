@@ -935,14 +935,23 @@ namespace DramaMurderGraduation.Web
                 var note = StripMoneyPrefix(rawContent);
                 if (string.IsNullOrWhiteSpace(note))
                 {
-                    note = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "\u7ea2" : "\u8f6c";
+                    note = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase)
+                        ? "\u606d\u559c\u53d1\u8d22\uff0c\u5927\u5409\u5927\u5229"
+                        : "\u8f6c\u8d26";
                 }
 
                 return new HtmlString(
                     "<div class=\"wx-money-message " + css + "\">" +
-                    "<p class=\"wx-money-note\">" + HighlightKeyword(note, ConversationSearchKeyword) + "</p>" +
-                    "<p class=\"wx-money-title\"><strong>" + HttpUtility.HtmlEncode(label) + "</strong><span>\uffe5 " + HttpUtility.HtmlEncode(amountText) + "</span></p>" +
-                    "<p class=\"wx-money-status\">" + HttpUtility.HtmlEncode(status) + "</p>" +
+                    "<div class=\"wx-money-card-face\">" +
+                    "<span class=\"wx-money-card-icon\">" + (css == "redpacket" ? "\u7ea2" : "\u8f6c") + "</span>" +
+                    "<div class=\"wx-money-card-copy\">" +
+                    "<strong>" + HttpUtility.HtmlEncode(label) + "</strong>" +
+                    "<span>\uffe5 " + HttpUtility.HtmlEncode(amountText) + "</span>" +
+                    "<small>" + HttpUtility.HtmlEncode(status) + "</small>" +
+                    "</div>" +
+                    "</div>" +
+                    "<div class=\"wx-money-card-note\">" + HighlightKeyword(note, ConversationSearchKeyword) + "</div>" +
+                    "<div class=\"wx-money-card-footer\">" + HttpUtility.HtmlEncode(label) + "</div>" +
                     "</div>");
             }
 

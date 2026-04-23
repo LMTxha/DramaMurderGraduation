@@ -3147,10 +3147,11 @@ a.session-card {
 
 .chat-message-bubble.money-bubble .wx-bubble-body {
     box-sizing: border-box;
-    width: 342px;
-    min-height: 228px;
-    padding: 24px 32px 22px;
+    width: 320px;
+    min-height: 0;
+    padding: 0;
     border-radius: 8px;
+    background: transparent;
 }
 
 .wx-message-avatar {
@@ -3177,42 +3178,83 @@ a.session-card {
 
 .wx-money-message {
     width: 100%;
-    color: #050505;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f2a23b;
+    box-shadow: 0 2px 8px rgba(31, 31, 31, 0.08);
 }
 
-.wx-money-message p {
-    margin: 0;
-    color: #050505;
-    line-height: 1.08;
+.wx-money-message.transfer {
+    background: #f0a13a;
 }
 
-.wx-money-note {
-    font-size: 34px;
+.wx-money-card-face {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 104px;
+    padding: 16px;
+    color: #fff;
+}
+
+.wx-money-card-icon {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    font-size: 22px;
     font-weight: 800;
 }
 
-.wx-money-title {
-    display: flex;
-    align-items: baseline;
-    gap: 0;
-    margin-top: 20px !important;
-    font-size: 31px !important;
-    line-height: 1.05 !important;
-    white-space: nowrap;
+.wx-money-card-copy {
+    min-width: 0;
 }
 
-.wx-money-title strong {
+.wx-money-card-copy strong,
+.wx-money-card-copy span,
+.wx-money-card-copy small {
+    display: block;
+}
+
+.wx-money-card-copy strong {
+    color: #fff;
+    font-size: 18px;
     font-weight: 800;
+    line-height: 1.25;
 }
 
-.wx-money-title span {
-    font-weight: 500;
+.wx-money-card-copy span {
+    margin-top: 4px;
+    color: #fff;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.1;
 }
 
-.wx-money-status {
-    margin-top: 22px !important;
-    font-size: 30px !important;
-    line-height: 1.05 !important;
+.wx-money-card-copy small {
+    margin-top: 7px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 14px;
+    line-height: 1.25;
+}
+
+.wx-money-card-note {
+    padding: 0 16px 14px;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.wx-money-card-footer {
+    padding: 8px 16px;
+    background: #fff;
+    color: #8a8a8a;
+    font-size: 13px;
+    line-height: 1.2;
 }
 
 .wx-bubble-body .chat-bubble-head {
@@ -3234,37 +3276,21 @@ a.session-card {
 }
 
 .chat-message-bubble.money-bubble .wx-bubble-body .chat-bubble-head {
-    margin-bottom: 22px;
+    margin-bottom: 8px;
 }
 
 .chat-message-bubble.money-bubble .wx-muted-link {
     display: inline-flex;
-    margin-top: 14px;
+    margin-top: 8px;
     margin-right: 0;
     color: #6f7480;
-    font-size: 24px;
+    font-size: 16px;
     font-weight: 800;
 }
 
 @media (max-width: 720px) {
     .chat-message-bubble.money-bubble .wx-bubble-body {
-        width: min(342px, calc(100vw - 126px));
-        min-height: 204px;
-        padding: 20px 24px 18px;
-    }
-
-    .wx-money-note {
-        font-size: 28px;
-    }
-
-    .wx-money-title {
-        font-size: 25px !important;
-        margin-top: 16px !important;
-    }
-
-    .wx-money-status {
-        font-size: 24px !important;
-        margin-top: 18px !important;
+        width: min(320px, calc(100vw - 126px));
     }
 }
 
