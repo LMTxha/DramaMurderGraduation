@@ -38,7 +38,12 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            var user = _accountRepository.Authenticate(txtUsername.Text.Trim(), txtPassword.Text, out var message);
+            var user = _accountRepository.Authenticate(
+                txtUsername.Text.Trim(),
+                txtPassword.Text,
+                Request.UserHostAddress,
+                Request.UserAgent,
+                out var message);
             if (user == null)
             {
                 ShowMessage(message, false);

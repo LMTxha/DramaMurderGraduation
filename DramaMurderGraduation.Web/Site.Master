@@ -7,10 +7,10 @@
     <title>
         <asp:ContentPlaceHolder ID="TitleContent" runat="server" />
     </title>
-    <link rel="stylesheet" href="Content/site.css?v=20260420-booking-disabled-state" />
+    <link rel="stylesheet" href="Content/site.css?v=20260424-demo-reset" />
 </head>
 <body>
-    <form id="MainForm" runat="server">
+<form id="MainForm" runat="server" enctype="multipart/form-data">
         <div class="page-backdrop">
             <div class="backdrop-orb orb-one"></div>
             <div class="backdrop-orb orb-two"></div>
@@ -38,8 +38,9 @@
                         </asp:PlaceHolder>
 
                         <asp:PlaceHolder ID="phMemberMenu" runat="server" Visible="false">
+                            <a class="auth-top-link notification-top-link" href="NotificationCenter.aspx"><asp:Literal ID="litNotificationLabel" runat="server" /></a>
                             <a class="account-chip" href="Settings.aspx">
-                                <span class="account-avatar">玩</span>
+                                <asp:Image ID="imgCurrentAvatar" runat="server" CssClass="account-avatar account-avatar-img" AlternateText="当前用户头像" />
                                 <span class="account-copy">
                                     <strong><asp:Literal ID="litCurrentUserName" runat="server" /></strong>
                                     <small>余额 ￥<asp:Literal ID="litCurrentBalance" runat="server" /></small>
@@ -62,21 +63,24 @@
                         <a href="ScriptsList.aspx">剧本库</a>
                         <a href="Rooms.aspx">房间场次</a>
                         <a href="Booking.aspx">在线预约</a>
+                        <a class="site-nav-takeaway" href="<%= TakeawayUrl %>">外卖</a>
                         <a href="StoreContact.aspx">门店联系</a>
                         <a href="PlayerHub.aspx">玩家中心</a>
                         <a href="https://chat.qwen.ai/">AI 助手</a>
                         <asp:PlaceHolder ID="phSocialNav" runat="server" Visible="false">
                             <a href="Friends.aspx"><asp:Literal ID="litSocialNavLabel" runat="server" /></a>
                         </asp:PlaceHolder>
-                        <a href="Analytics.aspx">数据分析</a>
                         <a href="Spectator.aspx">观战中心</a>
                         <a href="Reviews.aspx">玩家点评</a>
                         <asp:PlaceHolder ID="phLoggedIn" runat="server" Visible="false">
                             <a href="Wallet.aspx">钱包中心</a>
+                            <a href="NotificationCenter.aspx"><asp:Literal ID="litNotificationNavLabel" runat="server" /></a>
                             <a href="CreatorCenter.aspx">创作者中心</a>
                             <a href="Settings.aspx">设置中心</a>
+                            <a href="SecurityCenter.aspx">安全中心</a>
                         </asp:PlaceHolder>
                         <asp:PlaceHolder ID="phAdmin" runat="server" Visible="false">
+                            <a href="Analytics.aspx">数据分析</a>
                             <a href="AdminReview.aspx">后台审核</a>
                         </asp:PlaceHolder>
                         <asp:PlaceHolder ID="phDm" runat="server" Visible="false">
@@ -139,7 +143,7 @@
         </footer>
     </form>
 
-    <script src="Scripts/site.js?v=20260421-dm-console"></script>
+    <script src="Scripts/site.js?v=20260424-room-live-sync"></script>
 </body>
 </html>
 

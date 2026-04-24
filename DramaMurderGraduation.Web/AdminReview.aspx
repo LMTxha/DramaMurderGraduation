@@ -80,6 +80,9 @@
                     <h2>财务审计概览</h2>
                     <p>快速确认充值、预约收入、退款和优惠抵扣是否平衡，异常交易会单独标出。</p>
                 </div>
+                <div class="hero-actions">
+                    <a class="btn-secondary small" href="AdminReview.aspx?export=finance">导出财务报表 CSV</a>
+                </div>
                 <div class="analytics-kpi-grid">
                     <div class="analytics-stat-card"><p>充值总额</p><strong>￥<asp:Literal ID="litAuditRechargeTotal" runat="server" /></strong></div>
                     <div class="analytics-stat-card"><p>预约收入</p><strong>￥<asp:Literal ID="litAuditBookingTotal" runat="server" /></strong></div>
@@ -128,6 +131,7 @@
                         <ItemTemplate>
                             <article class="reservation-card">
                                 <h3><%# Eval("DisplayName") %> / ￥<%# Eval("Amount", "{0:F2}") %></h3>
+                                <p>充值单号：<%# Eval("RechargeOrderNo") %></p>
                                 <p>方式：<%# DisplayPaymentMethod(Eval("PaymentMethod")) %> · 账号：<%# Eval("PaymentAccountMasked") %></p>
                                 <p>提交时间：<%# Eval("SubmittedAt", "{0:yyyy-MM-dd HH:mm}") %></p>
                                 <asp:TextBox ID="txtRechargeRemark" runat="server" CssClass="input-control" placeholder="审核备注" Text='<%# Eval("ReviewRemark") %>' />

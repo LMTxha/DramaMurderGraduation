@@ -19,6 +19,12 @@ namespace DramaMurderGraduation.Web
         {
             AuthManager.RequireAdmin();
 
+            if (string.Equals(Request.QueryString["export"], "finance", StringComparison.OrdinalIgnoreCase))
+            {
+                ExportFinanceAuditCsv();
+                return;
+            }
+
             if (!IsPostBack)
             {
                 BindFilterOptions();
@@ -756,6 +762,72 @@ namespace DramaMurderGraduation.Web
             pnlMessage.Visible = true;
             pnlMessage.CssClass = success ? "status-message success" : "status-message error";
             litMessage.Text = message;
+        }
+
+        private void ExportFinanceAuditCsv()
+        {
+            var rechargeRecords = _accountRepository.GetRechargeAuditRecords(500);
+            var walletTransactions = _accountRepository.GetAdminWalletTransactions(500);
+            var builder = new StringBuilder();
+
+            builder.AppendLine("Section,OrderNo,User,PaymentMethod,Amount,Status,SubmittedAt,ReviewedAt,Remark,TransactionType,BalanceBefore,BalanceAfter,Summary,AuditNote");
+
+            foreach (var item in rechargeRecords)
+            {
+                builder.AppendLine(string.Join(",",
+                    EscapeCsv("Recharge"),
+                    EscapeCsv(item.RechargeOrderNo),
+                    EscapeCsv(item.DisplayName),
+                    EscapeCsv(DisplayPaymentMethod(item.PaymentMethod)),
+                    EscapeCsv(item.Amount.ToString("F2")),
+                    EscapeCsv(item.RequestStatus),
+                    EscapeCsv(item.SubmittedAt.ToString("yyyy-MM-dd HH:mm")),
+                    EscapeCsv(item.ReviewedAt.HasValue ? item.ReviewedAt.Value.ToString("yyyy-MM-dd HH:mm") : string.Empty),
+                    EscapeCsv(item.ReviewRemark),
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty));
+            }
+
+            foreach (var item in walletTransactions)
+            {
+                builder.AppendLine(string.Join(",",
+                    EscapeCsv("WalletTransaction"),
+                    string.Empty,
+                    EscapeCsv(item.UserDisplayName),
+                    string.Empty,
+                    EscapeCsv(item.Amount.ToString("F2")),
+                    string.Empty,
+                    EscapeCsv(item.CreatedAt.ToString("yyyy-MM-dd HH:mm")),
+                    string.Empty,
+                    string.Empty,
+                    EscapeCsv(item.TransactionType),
+                    EscapeCsv(item.BalanceBefore.ToString("F2")),
+                    EscapeCsv(item.BalanceAfter.ToString("F2")),
+                    EscapeCsv(item.Summary),
+                    EscapeCsv(item.AuditNote)));
+            }
+
+            Response.Clear();
+            Response.ContentType = "text/csv; charset=utf-8";
+            Response.ContentEncoding = Encoding.UTF8;
+            Response.AddHeader("Content-Disposition", "attachment; filename=finance-audit-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".csv");
+            Response.Write('\uFEFF');
+            Response.Write(builder.ToString());
+            Response.End();
+        }
+
+        private static string EscapeCsv(string value)
+        {
+            var normalized = value ?? string.Empty;
+            if (normalized.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0)
+            {
+                return "\"" + normalized.Replace("\"", "\"\"") + "\"";
+            }
+
+            return normalized;
         }
 
         private static IList<AdminTodoItemInfo> BuildAdminTodoItems(

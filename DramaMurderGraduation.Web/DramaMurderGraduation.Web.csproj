@@ -200,6 +200,13 @@
     <Compile Include="Login.aspx.designer.cs">
       <DependentUpon>Login.aspx</DependentUpon>
     </Compile>
+    <Compile Include="ForgotPassword.aspx.cs">
+      <DependentUpon>ForgotPassword.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="ForgotPassword.aspx.designer.cs">
+      <DependentUpon>ForgotPassword.aspx</DependentUpon>
+    </Compile>
     <Compile Include="NotificationCenter.aspx.cs">
       <DependentUpon>NotificationCenter.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -251,6 +258,7 @@
     <Compile Include="Models\GiftStatsInfo.cs" />
     <Compile Include="Models\GiftTransactionInfo.cs" />
     <Compile Include="Models\GiftWalletTransactionInfo.cs" />
+    <Compile Include="Models\LoginSecurityLogInfo.cs" />
     <Compile Include="Models\GameAssignmentInfo.cs" />
     <Compile Include="Models\GameClueInfo.cs" />
     <Compile Include="Models\GameHostClueOptionInfo.cs" />
@@ -270,6 +278,7 @@
     <Compile Include="Models\ScriptAssetInfo.cs" />
     <Compile Include="Models\PlayerBattleRecordInfo.cs" />
     <Compile Include="Models\PlayerProfileInfo.cs" />
+    <Compile Include="Models\ProfileChangeLogInfo.cs" />
     <Compile Include="Models\QuickNoteInfo.cs" />
     <Compile Include="Models\RechargeRequestInfo.cs" />
     <Compile Include="Models\RecommendationInfo.cs" />
@@ -341,6 +350,13 @@
     <Compile Include="Settings.aspx.designer.cs">
       <DependentUpon>Settings.aspx</DependentUpon>
     </Compile>
+    <Compile Include="SecurityCenter.aspx.cs">
+      <DependentUpon>SecurityCenter.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="SecurityCenter.aspx.designer.cs">
+      <DependentUpon>SecurityCenter.aspx</DependentUpon>
+    </Compile>
     <Compile Include="ScriptsList.aspx.cs">
       <DependentUpon>ScriptsList.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -405,6 +421,7 @@
     <Content Include="GroupChat.aspx" />
     <Content Include="Global.asax" />
     <Content Include="Login.aspx" />
+    <Content Include="ForgotPassword.aspx" />
     <Content Include="NotificationCenter.aspx" />
     <Content Include="OrderConversation.aspx" />
     <Content Include="OrderDetails.aspx" />
@@ -415,6 +432,7 @@
     <Content Include="Rooms.aspx" />
     <Content Include="ScriptDetails.aspx" />
     <Content Include="Settings.aspx" />
+    <Content Include="SecurityCenter.aspx" />
     <Content Include="Scripts\site.js" />
     <Content Include="ScriptsList.aspx" />
     <Content Include="setup-database.ps1" />

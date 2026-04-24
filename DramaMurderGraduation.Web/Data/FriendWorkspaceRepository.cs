@@ -555,7 +555,7 @@ BEGIN
     )
     VALUES
     (
-        @UserId, N'MobileConfirm', 1, N'C:\Users\Aurora\xwechat_files', 20, 1,
+        @UserId, N'MobileConfirm', 1, N'C:\Users\Aurora\DramaMurderChatFiles', 20, 1,
         N'Default', 1, 1, 0, 0, 0, GETDATE(), GETDATE()
     );
 END;
@@ -728,6 +728,9 @@ WHERE u.Id = @UserId;";
                 return false;
             }
 
+            var beforeSettings = GetExtendedUserSettings(userId);
+            var beforeSummary = BuildProfileChangeSummary(beforeSettings);
+
             const string sql = @"
 IF EXISTS (SELECT 1 FROM dbo.Users WHERE PublicUserCode = @PublicUserCode AND Id <> @UserId)
 BEGIN
@@ -778,6 +781,10 @@ END;";
                 try
                 {
                     command.ExecuteNonQuery();
+                    var afterSettings = GetExtendedUserSettings(userId);
+                    var afterSummary = BuildProfileChangeSummary(afterSettings);
+                    InsertProfileChangeLog(userId, beforeSummary, afterSummary);
+
                     message = "个人资料已更新。";
                     return true;
                 }
@@ -787,6 +794,85 @@ END;";
                     return false;
                 }
             }
+        }
+
+        public IList<ProfileChangeLogInfo> GetRecentProfileChangeLogs(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    Id,
+    UserId,
+    FieldName,
+    BeforeValue,
+    AfterValue,
+    ChangedAt
+FROM dbo.UserProfileChangeLogs
+WHERE UserId = @UserId
+ORDER BY ChangedAt DESC, Id DESC;";
+
+            var results = new List<ProfileChangeLogInfo>();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new ProfileChangeLogInfo
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            UserId = Convert.ToInt32(reader["UserId"]),
+                            FieldName = Convert.ToString(reader["FieldName"]),
+                            BeforeValue = Convert.ToString(reader["BeforeValue"]),
+                            AfterValue = Convert.ToString(reader["AfterValue"]),
+                            ChangedAt = Convert.ToDateTime(reader["ChangedAt"])
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        private void InsertProfileChangeLog(int userId, string beforeValue, string afterValue)
+        {
+            if (string.Equals(beforeValue, afterValue, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            const string sql = @"
+INSERT INTO dbo.UserProfileChangeLogs(UserId, FieldName, BeforeValue, AfterValue, ChangedAt)
+VALUES(@UserId, N'Profile', @BeforeValue, @AfterValue, GETDATE());";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@BeforeValue", string.IsNullOrWhiteSpace(beforeValue) ? (object)DBNull.Value : beforeValue);
+                command.Parameters.AddWithValue("@AfterValue", string.IsNullOrWhiteSpace(afterValue) ? (object)DBNull.Value : afterValue);
+                connection.Open();
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private static string BuildProfileChangeSummary(UserSettingsInfo settings)
+        {
+            if (settings == null)
+            {
+                return string.Empty;
+            }
+
+            return "昵称：" + NullToEmpty(settings.DisplayName)
+                + "；手机号：" + NullToEmpty(settings.Phone)
+                + "；账号 ID：" + NullToEmpty(settings.PublicUserCode)
+                + "；头像：" + NullToEmpty(settings.AvatarUrl)
+                + "；性别：" + NullToEmpty(settings.Gender)
+                + "；地区：" + NullToEmpty(settings.Region)
+                + "；签名：" + NullToEmpty(settings.Signature);
         }
 
         private static string NormalizeMessageType(string messageType)

@@ -65,6 +65,11 @@ VALUES
 
         public UserAccountInfo Authenticate(string username, string password, out string message)
         {
+            return Authenticate(username, password, null, null, out message);
+        }
+
+        public UserAccountInfo Authenticate(string username, string password, string ipAddress, string userAgent, out string message)
+        {
             const string sql = @"
 SELECT TOP 1
     Id,
@@ -95,6 +100,7 @@ WHERE Username = @Username
                     if (!reader.Read())
                     {
                         message = "用户名或密码不正确。";
+                        RecordLoginSecurityLog(null, username, "InvalidCredential", ipAddress, userAgent, message);
                         return null;
                     }
 
@@ -103,6 +109,7 @@ WHERE Username = @Username
                     if (user.ReviewStatus == "Pending")
                     {
                         message = "账号还在等待管理员审核，请稍后再登录。";
+                        RecordLoginSecurityLog(user.Id, user.Username, "Pending", ipAddress, userAgent, message);
                         return null;
                     }
 
@@ -111,11 +118,217 @@ WHERE Username = @Username
                         message = string.IsNullOrWhiteSpace(user.ReviewRemark)
                             ? "账号审核未通过，请联系管理员。"
                             : "账号审核未通过：" + user.ReviewRemark;
+                        RecordLoginSecurityLog(user.Id, user.Username, "Rejected", ipAddress, userAgent, message);
                         return null;
                     }
 
                     message = "登录成功。";
+                    RecordLoginSecurityLog(user.Id, user.Username, "Success", ipAddress, userAgent, message);
                     return user;
+                }
+            }
+        }
+
+        public void RecordLoginSecurityLog(int? userId, string username, string resultType, string ipAddress, string userAgent, string detail)
+        {
+            const string sql = @"
+INSERT INTO dbo.UserLoginSecurityLogs
+(
+    UserId,
+    Username,
+    ResultType,
+    IpAddress,
+    UserAgent,
+    Detail,
+    CreatedAt
+)
+VALUES
+(
+    @UserId,
+    @Username,
+    @ResultType,
+    @IpAddress,
+    @UserAgent,
+    @Detail,
+    GETDATE()
+);";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@UserId", userId.HasValue ? (object)userId.Value : DBNull.Value);
+                command.Parameters.AddWithValue("@Username", string.IsNullOrWhiteSpace(username) ? string.Empty : username.Trim());
+                command.Parameters.AddWithValue("@ResultType", string.IsNullOrWhiteSpace(resultType) ? "Unknown" : resultType.Trim());
+                command.Parameters.AddWithValue("@IpAddress", string.IsNullOrWhiteSpace(ipAddress) ? string.Empty : ipAddress.Trim());
+                command.Parameters.AddWithValue("@UserAgent", string.IsNullOrWhiteSpace(userAgent) ? string.Empty : userAgent.Trim());
+                command.Parameters.AddWithValue("@Detail", string.IsNullOrWhiteSpace(detail) ? string.Empty : detail.Trim());
+                connection.Open();
+                command.ExecuteNonQuery();
+            }
+        }
+
+        public IList<LoginSecurityLogInfo> GetRecentLoginSecurityLogs(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    Id,
+    UserId,
+    Username,
+    ResultType,
+    IpAddress,
+    UserAgent,
+    Detail,
+    CreatedAt
+FROM dbo.UserLoginSecurityLogs
+WHERE UserId = @UserId
+ORDER BY CreatedAt DESC, Id DESC;";
+
+            var results = new List<LoginSecurityLogInfo>();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new LoginSecurityLogInfo
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            UserId = reader["UserId"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["UserId"]),
+                            Username = Convert.ToString(reader["Username"]),
+                            ResultType = Convert.ToString(reader["ResultType"]),
+                            IpAddress = GetString(reader, "IpAddress"),
+                            UserAgent = GetString(reader, "UserAgent"),
+                            Detail = GetString(reader, "Detail"),
+                            CreatedAt = Convert.ToDateTime(reader["CreatedAt"])
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        public bool CreatePasswordResetTicket(string username, string phone, out string ticketCode, out string message)
+        {
+            ticketCode = string.Empty;
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(phone))
+            {
+                message = "请输入用户名和绑定手机号。";
+                return false;
+            }
+
+            const string sql = @"
+DECLARE @UserId INT;
+
+SELECT TOP 1 @UserId = Id
+FROM dbo.Users
+WHERE Username = @Username
+  AND Phone = @Phone
+  AND ReviewStatus = N'Approved';
+
+IF @UserId IS NULL
+BEGIN
+    RAISERROR(N'未找到匹配的账号与手机号，请确认后重试。', 16, 1);
+    RETURN;
+END;
+
+UPDATE dbo.PasswordResetTickets
+SET IsUsed = 1,
+    UsedAt = GETDATE()
+WHERE UserId = @UserId
+  AND IsUsed = 0;
+
+INSERT INTO dbo.PasswordResetTickets(UserId, TicketCode, ExpiresAt, IsUsed, CreatedAt, UsedAt)
+VALUES(@UserId, @TicketCode, DATEADD(MINUTE, 15, GETDATE()), 0, GETDATE(), NULL);";
+
+            ticketCode = BuildPasswordResetTicketCode();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Username", username.Trim());
+                command.Parameters.AddWithValue("@Phone", phone.Trim());
+                command.Parameters.AddWithValue("@TicketCode", ticketCode);
+                connection.Open();
+                try
+                {
+                    command.ExecuteNonQuery();
+                    message = "校验码已生成，15 分钟内有效。";
+                    return true;
+                }
+                catch (SqlException ex)
+                {
+                    ticketCode = string.Empty;
+                    message = ex.Message;
+                    return false;
+                }
+            }
+        }
+
+        public bool ResetPasswordWithTicket(string username, string ticketCode, string newPassword, out string message)
+        {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(ticketCode) || string.IsNullOrWhiteSpace(newPassword))
+            {
+                message = "请填写用户名、校验码和新密码。";
+                return false;
+            }
+
+            if (newPassword.Length < 6)
+            {
+                message = "新密码至少需要 6 位。";
+                return false;
+            }
+
+            const string sql = @"
+DECLARE @UserId INT;
+DECLARE @TicketId INT;
+
+SELECT TOP 1
+    @UserId = u.Id,
+    @TicketId = t.Id
+FROM dbo.PasswordResetTickets t
+INNER JOIN dbo.Users u ON u.Id = t.UserId
+WHERE u.Username = @Username
+  AND t.TicketCode = @TicketCode
+  AND t.IsUsed = 0
+  AND t.ExpiresAt >= GETDATE()
+ORDER BY t.CreatedAt DESC, t.Id DESC;
+
+IF @UserId IS NULL
+BEGIN
+    RAISERROR(N'校验码无效或已过期，请重新申请。', 16, 1);
+    RETURN;
+END;
+
+UPDATE dbo.Users
+SET PasswordHash = @PasswordHash
+WHERE Id = @UserId;
+
+UPDATE dbo.PasswordResetTickets
+SET IsUsed = 1,
+    UsedAt = GETDATE()
+WHERE Id = @TicketId;";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Username", username.Trim());
+                command.Parameters.AddWithValue("@TicketCode", ticketCode.Trim());
+                command.Parameters.AddWithValue("@PasswordHash", AuthManager.HashPassword(newPassword));
+                connection.Open();
+                try
+                {
+                    command.ExecuteNonQuery();
+                    message = "密码已重置，请使用新密码登录。";
+                    return true;
+                }
+                catch (SqlException ex)
+                {
+                    message = ex.Message;
+                    return false;
                 }
             }
         }
@@ -155,6 +368,124 @@ ORDER BY CreatedAt ASC, Id ASC;";
             }
 
             return results;
+        }
+
+        public IList<UserAccountInfo> GetApprovedUsers(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    Id,
+    Username,
+    DisplayName,
+    PublicUserCode,
+    Email,
+    Phone,
+    Balance,
+    RoleCode,
+    ReviewStatus,
+    ReviewRemark,
+    CreatedAt,
+    ReviewedAt
+FROM dbo.Users
+WHERE ReviewStatus = N'Approved'
+ORDER BY DisplayName ASC, Id ASC;";
+
+            var results = new List<UserAccountInfo>();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(MapUser(reader));
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        public IList<UserAccountInfo> GetDmUsers(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    Id,
+    Username,
+    DisplayName,
+    PublicUserCode,
+    Email,
+    Phone,
+    Balance,
+    RoleCode,
+    ReviewStatus,
+    ReviewRemark,
+    CreatedAt,
+    ReviewedAt
+FROM dbo.Users
+WHERE ReviewStatus = N'Approved'
+  AND RoleCode = N'DM'
+ORDER BY DisplayName ASC, Id ASC;";
+
+            var results = new List<UserAccountInfo>();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(MapUser(reader));
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        public FinanceAuditSummaryInfo GetExtendedFinanceAuditSummary()
+        {
+            const string sql = @"
+SELECT
+    ISNULL((SELECT SUM(Amount) FROM dbo.RechargeRequests WHERE RequestStatus = N'Approved'), 0) AS RechargeTotal,
+    ISNULL((SELECT SUM(ISNULL(TotalAmount, ISNULL(UnitPrice, 0) * PlayerCount)) FROM dbo.Reservations WHERE ISNULL(PaymentStatus, N'') = N'已支付' OR PaymentTransactionId IS NOT NULL), 0) AS BookingPaidTotal,
+    ISNULL((SELECT SUM(ISNULL(RefundedAmount, 0)) FROM dbo.AfterSaleRequests WHERE ISNULL(RefundedAmount, 0) > 0 OR Status = N'退款完成'), 0) AS RefundTotal,
+    ISNULL((SELECT SUM(ISNULL(DiscountAmount, 0)) FROM dbo.Reservations), 0) AS CouponDiscountTotal,
+    ISNULL((SELECT COUNT(1) FROM dbo.RechargeRequests WHERE RequestStatus = N'Pending'), 0) AS PendingRechargeCount,
+    ISNULL((SELECT COUNT(1) FROM dbo.AfterSaleRequests WHERE Status IN (N'待处理', N'已受理', N'待复审')), 0) AS PendingAfterSaleCount,
+    ISNULL((SELECT COUNT(1) FROM dbo.RechargeRequests WHERE RequestStatus = N'Rejected'), 0) AS RejectedRechargeCount,
+    ISNULL((SELECT COUNT(1) FROM dbo.WalletTransactions WHERE BalanceAfter < 0 OR BalanceAfter - Amount < 0 OR ABS(Amount) >= 1000), 0) AS AnomalyTransactionCount,
+    ISNULL((SELECT SUM(ISNULL(RequestedAmount, 0)) FROM dbo.AfterSaleRequests WHERE Status IN (N'待处理', N'已受理', N'待复审')), 0) AS PendingRefundAmount;";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    if (!reader.Read())
+                    {
+                        return new FinanceAuditSummaryInfo();
+                    }
+
+                    return new FinanceAuditSummaryInfo
+                    {
+                        RechargeTotal = Convert.ToDecimal(reader["RechargeTotal"]),
+                        BookingPaidTotal = Convert.ToDecimal(reader["BookingPaidTotal"]),
+                        RefundTotal = Convert.ToDecimal(reader["RefundTotal"]),
+                        CouponDiscountTotal = Convert.ToDecimal(reader["CouponDiscountTotal"]),
+                        PendingRechargeCount = Convert.ToInt32(reader["PendingRechargeCount"]),
+                        PendingAfterSaleCount = Convert.ToInt32(reader["PendingAfterSaleCount"]),
+                        RejectedRechargeCount = Convert.ToInt32(reader["RejectedRechargeCount"]),
+                        AnomalyTransactionCount = Convert.ToInt32(reader["AnomalyTransactionCount"]),
+                        PendingRefundAmount = Convert.ToDecimal(reader["PendingRefundAmount"])
+                    };
+                }
+            }
         }
 
         public bool ReviewUser(int userId, bool approved, string remark, out string message)
@@ -407,12 +738,17 @@ END";
             const string sql = @"
 DECLARE @BalanceAfter DECIMAL(10,2);
 DECLARE @WalletTransactionId INT;
+DECLARE @RechargeOrderNo NVARCHAR(32);
+
+SET @RechargeOrderNo = N'RC' + CONVERT(NVARCHAR(8), GETDATE(), 112)
+    + RIGHT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 8);
 
 IF @PaymentMethod = N'BankCard'
 BEGIN
     INSERT INTO dbo.RechargeRequests
     (
         UserId,
+        RechargeOrderNo,
         PaymentMethod,
         Amount,
         PaymentAccount,
@@ -426,6 +762,7 @@ BEGIN
     VALUES
     (
         @UserId,
+        @RechargeOrderNo,
         @PaymentMethod,
         @Amount,
         @PaymentAccount,
@@ -463,6 +800,7 @@ SET @WalletTransactionId = SCOPE_IDENTITY();
 INSERT INTO dbo.RechargeRequests
 (
     UserId,
+    RechargeOrderNo,
     PaymentMethod,
     Amount,
     PaymentAccount,
@@ -476,6 +814,7 @@ INSERT INTO dbo.RechargeRequests
 VALUES
 (
     @UserId,
+    @RechargeOrderNo,
     @PaymentMethod,
     @Amount,
     @PaymentAccount,
@@ -494,7 +833,7 @@ VALUES
                 command.Parameters.AddWithValue("@Amount", amount);
                 command.Parameters.AddWithValue("@PaymentMethod", paymentMethod);
                 command.Parameters.AddWithValue("@PaymentAccount", string.IsNullOrWhiteSpace(paymentAccount) ? (object)DBNull.Value : paymentAccount);
-                command.Parameters.AddWithValue("@Summary", paymentMethod == "ScanCode" ? "扫码支付充值成功" : "微信支付充值成功");
+                command.Parameters.AddWithValue("@Summary", paymentMethod == "ScanCode" ? "扫码支付充值成功" : "快捷支付充值成功");
                 connection.Open();
 
                 using (var transaction = connection.BeginTransaction())
@@ -552,6 +891,7 @@ SELECT TOP (@Top)
     rr.UserId,
     u.Username,
     u.DisplayName,
+    rr.RechargeOrderNo,
     rr.PaymentMethod,
     rr.Amount,
     rr.PaymentAccount,
@@ -592,6 +932,7 @@ SELECT
     rr.UserId,
     u.Username,
     u.DisplayName,
+    rr.RechargeOrderNo,
     rr.PaymentMethod,
     rr.Amount,
     rr.PaymentAccount,
@@ -754,6 +1095,107 @@ ORDER BY CreatedAt DESC, Id DESC;";
                             Amount = Convert.ToDecimal(reader["Amount"]),
                             BalanceAfter = Convert.ToDecimal(reader["BalanceAfter"]),
                             Summary = Convert.ToString(reader["Summary"]),
+                            CreatedAt = Convert.ToDateTime(reader["CreatedAt"])
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        public IList<RechargeRequestInfo> GetRechargeAuditRecords(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    rr.Id,
+    rr.UserId,
+    u.Username,
+    u.DisplayName,
+    rr.RechargeOrderNo,
+    rr.PaymentMethod,
+    rr.Amount,
+    rr.PaymentAccount,
+    rr.RequestStatus,
+    rr.ReviewRemark,
+    reviewer.DisplayName AS ReviewedByName,
+    rr.WalletTransactionId,
+    rr.SubmittedAt,
+    rr.ReviewedAt
+FROM dbo.RechargeRequests rr
+INNER JOIN dbo.Users u ON u.Id = rr.UserId
+LEFT JOIN dbo.Users reviewer ON reviewer.Id = rr.ReviewedByUserId
+ORDER BY rr.SubmittedAt DESC, rr.Id DESC;";
+
+            var results = new List<RechargeRequestInfo>();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(MapRechargeRequest(reader));
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        public IList<WalletTransactionInfo> GetAdminWalletTransactions(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    wt.Id,
+    wt.UserId,
+    u.Username,
+    u.DisplayName AS UserDisplayName,
+    wt.TransactionType,
+    wt.Amount,
+    CAST(wt.BalanceAfter - wt.Amount AS DECIMAL(10,2)) AS BalanceBefore,
+    wt.BalanceAfter,
+    wt.Summary,
+    CASE
+        WHEN wt.BalanceAfter < 0 OR wt.BalanceAfter - wt.Amount < 0 THEN CAST(1 AS BIT)
+        WHEN ABS(wt.Amount) >= 1000 THEN CAST(1 AS BIT)
+        ELSE CAST(0 AS BIT)
+    END AS IsAnomaly,
+    CASE
+        WHEN wt.BalanceAfter < 0 OR wt.BalanceAfter - wt.Amount < 0 THEN N'余额出现负数，请复核账务。'
+        WHEN ABS(wt.Amount) >= 1000 THEN N'单笔金额较大，建议复核凭证。'
+        ELSE N'账务正常'
+    END AS AuditNote,
+    wt.CreatedAt
+FROM dbo.WalletTransactions wt
+INNER JOIN dbo.Users u ON u.Id = wt.UserId
+ORDER BY wt.CreatedAt DESC, wt.Id DESC;";
+
+            var results = new List<WalletTransactionInfo>();
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new WalletTransactionInfo
+                        {
+                            Id = Convert.ToInt32(reader["Id"]),
+                            UserId = Convert.ToInt32(reader["UserId"]),
+                            Username = Convert.ToString(reader["Username"]),
+                            UserDisplayName = Convert.ToString(reader["UserDisplayName"]),
+                            TransactionType = Convert.ToString(reader["TransactionType"]),
+                            Amount = Convert.ToDecimal(reader["Amount"]),
+                            BalanceBefore = Convert.ToDecimal(reader["BalanceBefore"]),
+                            BalanceAfter = Convert.ToDecimal(reader["BalanceAfter"]),
+                            Summary = Convert.ToString(reader["Summary"]),
+                            IsAnomaly = Convert.ToBoolean(reader["IsAnomaly"]),
+                            AuditNote = Convert.ToString(reader["AuditNote"]),
                             CreatedAt = Convert.ToDateTime(reader["CreatedAt"])
                         });
                     }
@@ -1891,6 +2333,66 @@ WHERE Id = @MessageId
             }
         }
 
+        public bool ClaimPeerTransfer(int userId, int messageId, out string message)
+        {
+            const string sql = @"
+DECLARE @TransferId INT;
+DECLARE @TransferStatus NVARCHAR(20);
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.FriendMessages
+    WHERE Id = @MessageId
+      AND ReceiverUserId = @UserId
+      AND MessageType IN (N'RedPacket', N'Transfer')
+)
+BEGIN
+    RAISERROR(N'未找到可领取的红包或转账消息。', 16, 1);
+    RETURN;
+END;
+
+SELECT TOP 1
+    @TransferId = Id,
+    @TransferStatus = Status
+FROM dbo.FriendMoneyTransfers
+WHERE MessageId = @MessageId
+  AND ReceiverUserId = @UserId
+ORDER BY Id DESC;
+
+UPDATE dbo.FriendMessages
+SET IsRead = 1
+WHERE Id = @MessageId
+  AND ReceiverUserId = @UserId;
+
+IF @TransferId IS NOT NULL AND ISNULL(@TransferStatus, N'Claimed') <> N'Claimed'
+BEGIN
+    UPDATE dbo.FriendMoneyTransfers
+    SET Status = N'Claimed',
+        ClaimedAt = GETDATE()
+    WHERE Id = @TransferId;
+END;";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@MessageId", messageId);
+                connection.Open();
+                try
+                {
+                    command.ExecuteNonQuery();
+                    message = "该红包/转账已实时入账，聊天记录已更新。";
+                    return true;
+                }
+                catch (SqlException ex)
+                {
+                    message = ex.Message;
+                    return false;
+                }
+            }
+        }
+
         public bool RemoveFriend(int userId, int friendUserId, out string message)
         {
             const string sql = @"
@@ -2454,6 +2956,8 @@ DECLARE @SenderBalanceAfter DECIMAL(10,2);
 DECLARE @ReceiverBalanceAfter DECIMAL(10,2);
 DECLARE @TransferLabel NVARCHAR(20);
 DECLARE @ReceiverExists INT;
+DECLARE @TransferId INT;
+DECLARE @MessageId INT;
 
   IF @SenderUserId = @ReceiverUserId
   BEGIN
@@ -2554,8 +3058,10 @@ SELECT @ReceiverBalanceAfter = Balance
 FROM dbo.Users
 WHERE Id = @ReceiverUserId;
 
-INSERT INTO dbo.FriendMoneyTransfers(SenderUserId, ReceiverUserId, TransferType, Amount, Note, CreatedAt)
-VALUES(@SenderUserId, @ReceiverUserId, @TransferType, @Amount, NULLIF(@Note, N''), GETDATE());
+INSERT INTO dbo.FriendMoneyTransfers(SenderUserId, ReceiverUserId, TransferType, Amount, Note, Status, ClaimedAt, CreatedAt)
+VALUES(@SenderUserId, @ReceiverUserId, @TransferType, @Amount, NULLIF(@Note, N''), N'Claimed', GETDATE(), GETDATE());
+
+SET @TransferId = SCOPE_IDENTITY();
 
 INSERT INTO dbo.WalletTransactions(UserId, TransactionType, Amount, BalanceAfter, Summary, CreatedAt)
 VALUES(@SenderUserId, @TransferLabel + N'支出', -@Amount, @SenderBalanceAfter, @TransferLabel + N'已发出，现金余额实时扣减', GETDATE());
@@ -2564,7 +3070,13 @@ INSERT INTO dbo.WalletTransactions(UserId, TransactionType, Amount, BalanceAfter
 VALUES(@ReceiverUserId, @TransferLabel + N'收入', @Amount, @ReceiverBalanceAfter, @TransferLabel + N'已到账，现金余额实时增加', GETDATE());
 
 INSERT INTO dbo.FriendMessages(SenderUserId, ReceiverUserId, MessageType, Content, AttachmentUrl, LocationText, CreatedAt)
-VALUES(@SenderUserId, @ReceiverUserId, @TransferType, @TransferLabel + N' ￥' + CONVERT(NVARCHAR(20), CAST(@Amount AS DECIMAL(10,2))) + CASE WHEN NULLIF(@Note, N'') IS NULL THEN N'' ELSE N' · ' + @Note END, NULL, NULL, GETDATE());";
+VALUES(@SenderUserId, @ReceiverUserId, @TransferType, @TransferLabel + N' ￥' + CONVERT(NVARCHAR(20), CAST(@Amount AS DECIMAL(10,2))) + CASE WHEN NULLIF(@Note, N'') IS NULL THEN N'' ELSE N' · ' + @Note END, NULL, NULL, GETDATE());
+
+SET @MessageId = SCOPE_IDENTITY();
+
+UPDATE dbo.FriendMoneyTransfers
+SET MessageId = @MessageId
+WHERE Id = @TransferId;";
 
             using (var connection = DbHelper.CreateConnection())
             using (var command = new SqlCommand(sql, connection))
@@ -2607,6 +3119,8 @@ SELECT TOP (@Top)
     fmt.TransferType,
     fmt.Amount,
     ISNULL(fmt.Note, N'') AS Note,
+    ISNULL(fmt.Status, N'Claimed') AS Status,
+    fmt.ClaimedAt,
     fmt.CreatedAt
 FROM dbo.FriendMoneyTransfers fmt
 INNER JOIN dbo.Users sender ON sender.Id = fmt.SenderUserId
@@ -2636,6 +3150,8 @@ ORDER BY fmt.CreatedAt DESC, fmt.Id DESC;";
                             TransferType = Convert.ToString(reader["TransferType"]),
                             Amount = Convert.ToDecimal(reader["Amount"]),
                             Note = Convert.ToString(reader["Note"]),
+                            Status = Convert.ToString(reader["Status"]),
+                            ClaimedAt = reader["ClaimedAt"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["ClaimedAt"]),
                             CreatedAt = Convert.ToDateTime(reader["CreatedAt"])
                         });
                     }
@@ -2964,12 +3480,15 @@ END;";
                 UserId = Convert.ToInt32(reader["UserId"]),
                 Username = Convert.ToString(reader["Username"]),
                 DisplayName = Convert.ToString(reader["DisplayName"]),
+                RechargeOrderNo = GetString(reader, "RechargeOrderNo"),
                 PaymentMethod = Convert.ToString(reader["PaymentMethod"]),
                 Amount = Convert.ToDecimal(reader["Amount"]),
                 PaymentAccount = paymentAccount,
                 PaymentAccountMasked = MaskPaymentAccount(Convert.ToString(reader["PaymentMethod"]), paymentAccount),
                 RequestStatus = Convert.ToString(reader["RequestStatus"]),
                 ReviewRemark = reader["ReviewRemark"] == DBNull.Value ? string.Empty : Convert.ToString(reader["ReviewRemark"]),
+                ReviewedByName = GetString(reader, "ReviewedByName"),
+                WalletTransactionId = reader["WalletTransactionId"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["WalletTransactionId"]),
                 SubmittedAt = Convert.ToDateTime(reader["SubmittedAt"]),
                 ReviewedAt = reader["ReviewedAt"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["ReviewedAt"])
             };
@@ -2979,7 +3498,7 @@ END;";
         {
             if (string.IsNullOrWhiteSpace(paymentAccount))
             {
-                return paymentMethod == "WeChat" ? "微信快捷充值" : paymentMethod == "ScanCode" ? "扫码支付" : string.Empty;
+                return paymentMethod == "WeChat" ? "快捷充值" : paymentMethod == "ScanCode" ? "扫码支付" : string.Empty;
             }
 
             if (paymentAccount.Length <= 8)
@@ -2988,6 +3507,11 @@ END;";
             }
 
             return paymentAccount.Substring(0, 4) + " **** **** " + paymentAccount.Substring(paymentAccount.Length - 4);
+        }
+
+        private static string BuildPasswordResetTicketCode()
+        {
+            return "RP" + DateTime.Now.ToString("MMddHH") + Guid.NewGuid().ToString("N").Substring(0, 6).ToUpperInvariant();
         }
     }
 }

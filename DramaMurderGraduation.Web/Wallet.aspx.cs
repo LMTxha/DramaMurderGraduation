@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Web.UI.WebControls;
 using DramaMurderGraduation.Web.Data;
 
@@ -10,7 +10,7 @@ namespace DramaMurderGraduation.Web
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            AuthManager.RequireLogin();
+            AuthManager.RequireApprovedUser();
             UpdatePaymentPanels();
 
             if (!IsPostBack)
@@ -88,7 +88,7 @@ namespace DramaMurderGraduation.Web
 
             if (!int.TryParse(txtGiftRechargeCoins.Text, out var giftCoins) || giftCoins < 50 || giftCoins > 5000)
             {
-                ShowGiftMessage("礼物币兑换数量请输入 50 到 5000 之间的整数。", false);
+                ShowGiftMessage("赠送金兑换数量请输入 50 到 5000 之间的整数。", false);
                 return;
             }
 
@@ -109,7 +109,7 @@ namespace DramaMurderGraduation.Web
             if (latestUser == null)
             {
                 AuthManager.SignOut();
-                Response.Redirect("~/Login.aspx");
+                Response.Redirect("~/Login.aspx", true);
                 return;
             }
 
@@ -146,13 +146,13 @@ namespace DramaMurderGraduation.Web
             switch (rblPaymentMethod.SelectedValue)
             {
                 case "BankCard":
-                    litPaymentTip.Text = "银行卡支付会记录卡号并提交到管理员审核中心，审核通过后才会充值成功。";
+                    litPaymentTip.Text = "银行卡充值会记录卡号后四位并提交到后台审核，审核通过后再写入现金余额。";
                     break;
                 case "ScanCode":
-                    litPaymentTip.Text = "扫码支付用于模拟门店二维码收款，提交后会立即到账并写入充值申请与流水。";
+                    litPaymentTip.Text = "扫码支付用于模拟门店二维码收款，提交后会立即到账，并生成可审计的充值订单。";
                     break;
                 default:
-                    litPaymentTip.Text = "微信支付采用即时到账模式，提交后会立刻增加账户余额。";
+                    litPaymentTip.Text = "快捷支付采用即时到账模式，提交后会立刻增加账户余额。";
                     break;
             }
         }
@@ -166,7 +166,7 @@ namespace DramaMurderGraduation.Web
                 case "ScanCode":
                     return "扫码支付";
                 default:
-                    return "微信支付";
+                    return "快捷支付";
             }
         }
 

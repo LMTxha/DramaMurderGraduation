@@ -12,7 +12,7 @@ namespace DramaMurderGraduation.Web.Data
     {
         private const string BaseSchemaMigrationKey = "base-schema";
         private const string IncrementalFeaturesMigrationKey = "incremental-features";
-        private const string IncrementalFeaturesMigrationVersion = "2026-04-24-v2";
+        private const string IncrementalFeaturesMigrationVersion = "2026-04-24-v3";
         private static readonly object SyncRoot = new object();
         private static bool _initialized;
 
@@ -928,6 +928,91 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReservationWaitli
 BEGIN
     ALTER TABLE dbo.ReservationWaitlists
     ADD CONSTRAINT FK_ReservationWaitlists_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
+END;
+
+IF COL_LENGTH('dbo.RechargeRequests', 'RechargeOrderNo') IS NULL
+BEGIN
+    ALTER TABLE dbo.RechargeRequests
+    ADD RechargeOrderNo NVARCHAR(32) NULL;
+END;
+
+UPDATE dbo.RechargeRequests
+SET RechargeOrderNo = N'RC' + CONVERT(NVARCHAR(8), ISNULL(SubmittedAt, GETDATE()), 112)
+    + RIGHT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 8)
+WHERE ISNULL(RechargeOrderNo, N'') = N'';
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_RechargeRequests_RechargeOrderNo' AND object_id = OBJECT_ID('dbo.RechargeRequests'))
+BEGIN
+    CREATE UNIQUE INDEX UX_RechargeRequests_RechargeOrderNo ON dbo.RechargeRequests(RechargeOrderNo) WHERE RechargeOrderNo IS NOT NULL;
+END;
+
+IF OBJECT_ID('dbo.UserLoginSecurityLogs', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserLoginSecurityLogs
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NULL,
+        Username NVARCHAR(50) NOT NULL,
+        ResultType NVARCHAR(30) NOT NULL,
+        IpAddress NVARCHAR(80) NULL,
+        UserAgent NVARCHAR(500) NULL,
+        Detail NVARCHAR(300) NULL,
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_UserLoginSecurityLogs_CreatedAt DEFAULT(GETDATE())
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_UserLoginSecurityLogs_User_CreatedAt' AND object_id = OBJECT_ID('dbo.UserLoginSecurityLogs'))
+BEGIN
+    CREATE INDEX IX_UserLoginSecurityLogs_User_CreatedAt ON dbo.UserLoginSecurityLogs(UserId, CreatedAt DESC);
+END;
+
+IF OBJECT_ID('dbo.PasswordResetTickets', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PasswordResetTickets
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        TicketCode NVARCHAR(30) NOT NULL,
+        ExpiresAt DATETIME NOT NULL,
+        IsUsed BIT NOT NULL CONSTRAINT DF_PasswordResetTickets_IsUsed DEFAULT(0),
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_PasswordResetTickets_CreatedAt DEFAULT(GETDATE()),
+        UsedAt DATETIME NULL
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_PasswordResetTickets_Code' AND object_id = OBJECT_ID('dbo.PasswordResetTickets'))
+BEGIN
+    CREATE UNIQUE INDEX UX_PasswordResetTickets_Code ON dbo.PasswordResetTickets(TicketCode);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PasswordResetTickets_Users')
+BEGIN
+    ALTER TABLE dbo.PasswordResetTickets
+    ADD CONSTRAINT FK_PasswordResetTickets_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
+END;
+
+IF OBJECT_ID('dbo.UserProfileChangeLogs', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserProfileChangeLogs
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        FieldName NVARCHAR(50) NOT NULL,
+        BeforeValue NVARCHAR(1000) NULL,
+        AfterValue NVARCHAR(1000) NULL,
+        ChangedAt DATETIME NOT NULL CONSTRAINT DF_UserProfileChangeLogs_ChangedAt DEFAULT(GETDATE())
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_UserProfileChangeLogs_User_ChangedAt' AND object_id = OBJECT_ID('dbo.UserProfileChangeLogs'))
+BEGIN
+    CREATE INDEX IX_UserProfileChangeLogs_User_ChangedAt ON dbo.UserProfileChangeLogs(UserId, ChangedAt DESC);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_UserProfileChangeLogs_Users')
+BEGIN
+    ALTER TABLE dbo.UserProfileChangeLogs
+    ADD CONSTRAINT FK_UserProfileChangeLogs_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
 END;
 
 IF COL_LENGTH('dbo.Sessions', 'HostUserId') IS NULL

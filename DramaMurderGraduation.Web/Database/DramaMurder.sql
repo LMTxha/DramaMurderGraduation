@@ -522,6 +522,7 @@ BEGIN
     (
         Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
         UserId INT NOT NULL,
+        RechargeOrderNo NVARCHAR(32) NULL,
         PaymentMethod NVARCHAR(20) NOT NULL,
         Amount DECIMAL(10,2) NOT NULL,
         PaymentAccount NVARCHAR(80) NULL,
@@ -533,6 +534,24 @@ BEGIN
         ReviewedByUserId INT NULL,
         CONSTRAINT FK_RechargeRequests_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id)
     );
+END
+GO
+
+IF COL_LENGTH(N'dbo.RechargeRequests', N'RechargeOrderNo') IS NULL
+BEGIN
+    ALTER TABLE dbo.RechargeRequests ADD RechargeOrderNo NVARCHAR(32) NULL;
+END
+GO
+
+UPDATE dbo.RechargeRequests
+SET RechargeOrderNo = N'RC' + CONVERT(NVARCHAR(8), ISNULL(SubmittedAt, GETDATE()), 112)
+    + RIGHT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 8)
+WHERE ISNULL(RechargeOrderNo, N'') = N'';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_RechargeRequests_RechargeOrderNo' AND object_id = OBJECT_ID(N'dbo.RechargeRequests'))
+BEGIN
+    CREATE UNIQUE INDEX UX_RechargeRequests_RechargeOrderNo ON dbo.RechargeRequests(RechargeOrderNo) WHERE RechargeOrderNo IS NOT NULL;
 END
 GO
 
@@ -559,6 +578,90 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_RechargeRequests
 BEGIN
     ALTER TABLE dbo.RechargeRequests
     ADD CONSTRAINT FK_RechargeRequests_ReviewedByUsers FOREIGN KEY (ReviewedByUserId) REFERENCES dbo.Users(Id);
+END
+GO
+
+IF OBJECT_ID(N'dbo.UserLoginSecurityLogs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserLoginSecurityLogs
+    (
+        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        UserId INT NULL,
+        Username NVARCHAR(50) NOT NULL,
+        ResultType NVARCHAR(30) NOT NULL,
+        IpAddress NVARCHAR(80) NULL,
+        UserAgent NVARCHAR(500) NULL,
+        Detail NVARCHAR(300) NULL,
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_UserLoginSecurityLogs_CreatedAt DEFAULT(GETDATE())
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_UserLoginSecurityLogs_User_CreatedAt' AND object_id = OBJECT_ID(N'dbo.UserLoginSecurityLogs'))
+BEGIN
+    CREATE INDEX IX_UserLoginSecurityLogs_User_CreatedAt ON dbo.UserLoginSecurityLogs(UserId, CreatedAt DESC);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_UserLoginSecurityLogs_Users')
+BEGIN
+    ALTER TABLE dbo.UserLoginSecurityLogs
+    ADD CONSTRAINT FK_UserLoginSecurityLogs_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
+END
+GO
+
+IF OBJECT_ID(N'dbo.PasswordResetTickets', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PasswordResetTickets
+    (
+        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        UserId INT NOT NULL,
+        TicketCode NVARCHAR(30) NOT NULL,
+        ExpiresAt DATETIME NOT NULL,
+        IsUsed BIT NOT NULL CONSTRAINT DF_PasswordResetTickets_IsUsed DEFAULT(0),
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_PasswordResetTickets_CreatedAt DEFAULT(GETDATE()),
+        UsedAt DATETIME NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_PasswordResetTickets_Code' AND object_id = OBJECT_ID(N'dbo.PasswordResetTickets'))
+BEGIN
+    CREATE UNIQUE INDEX UX_PasswordResetTickets_Code ON dbo.PasswordResetTickets(TicketCode);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_PasswordResetTickets_Users')
+BEGIN
+    ALTER TABLE dbo.PasswordResetTickets
+    ADD CONSTRAINT FK_PasswordResetTickets_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
+END
+GO
+
+IF OBJECT_ID(N'dbo.UserProfileChangeLogs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserProfileChangeLogs
+    (
+        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        UserId INT NOT NULL,
+        FieldName NVARCHAR(50) NOT NULL,
+        BeforeValue NVARCHAR(1000) NULL,
+        AfterValue NVARCHAR(1000) NULL,
+        ChangedAt DATETIME NOT NULL CONSTRAINT DF_UserProfileChangeLogs_ChangedAt DEFAULT(GETDATE())
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_UserProfileChangeLogs_User_ChangedAt' AND object_id = OBJECT_ID(N'dbo.UserProfileChangeLogs'))
+BEGIN
+    CREATE INDEX IX_UserProfileChangeLogs_User_ChangedAt ON dbo.UserProfileChangeLogs(UserId, ChangedAt DESC);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_UserProfileChangeLogs_Users')
+BEGIN
+    ALTER TABLE dbo.UserProfileChangeLogs
+    ADD CONSTRAINT FK_UserProfileChangeLogs_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
 END
 GO
 
