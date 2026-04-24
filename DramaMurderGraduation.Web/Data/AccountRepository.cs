@@ -3528,39 +3528,117 @@ END;";
             return true;
         }
 
-        private static string GetString(SqlDataReader reader, string columnName)
+        private static int GetColumnOrdinal(SqlDataReader reader, string columnName)
         {
             for (var i = 0; i < reader.FieldCount; i++)
             {
                 if (string.Equals(reader.GetName(i), columnName, StringComparison.OrdinalIgnoreCase))
                 {
-                    return reader.IsDBNull(i) ? string.Empty : Convert.ToString(reader.GetValue(i));
+                    return i;
                 }
             }
 
-            return string.Empty;
+            return -1;
+        }
+
+        private static string GetString(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0)
+            {
+                return string.Empty;
+            }
+
+            return reader.IsDBNull(ordinal) ? string.Empty : Convert.ToString(reader.GetValue(ordinal));
+        }
+
+        private static int? GetNullableInt32(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0 || reader.IsDBNull(ordinal))
+            {
+                return null;
+            }
+
+            return Convert.ToInt32(reader.GetValue(ordinal));
+        }
+
+        private static DateTime? GetNullableDateTime(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0 || reader.IsDBNull(ordinal))
+            {
+                return null;
+            }
+
+            return Convert.ToDateTime(reader.GetValue(ordinal));
+        }
+
+        private static DateTime GetRequiredDateTime(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0 || reader.IsDBNull(ordinal))
+            {
+                throw new InvalidOperationException("Missing required column: " + columnName);
+            }
+
+            return Convert.ToDateTime(reader.GetValue(ordinal));
+        }
+
+        private static decimal GetRequiredDecimal(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0 || reader.IsDBNull(ordinal))
+            {
+                throw new InvalidOperationException("Missing required column: " + columnName);
+            }
+
+            return Convert.ToDecimal(reader.GetValue(ordinal));
+        }
+
+        private static int GetRequiredInt32(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0 || reader.IsDBNull(ordinal))
+            {
+                throw new InvalidOperationException("Missing required column: " + columnName);
+            }
+
+            return Convert.ToInt32(reader.GetValue(ordinal));
+        }
+
+        private static string GetRequiredString(SqlDataReader reader, string columnName)
+        {
+            var ordinal = GetColumnOrdinal(reader, columnName);
+            if (ordinal < 0 || reader.IsDBNull(ordinal))
+            {
+                throw new InvalidOperationException("Missing required column: " + columnName);
+            }
+
+            return Convert.ToString(reader.GetValue(ordinal));
         }
 
         private static RechargeRequestInfo MapRechargeRequest(SqlDataReader reader)
         {
-            var paymentAccount = reader["PaymentAccount"] == DBNull.Value ? string.Empty : Convert.ToString(reader["PaymentAccount"]);
+            var paymentMethod = GetRequiredString(reader, "PaymentMethod");
+            var paymentAccount = GetString(reader, "PaymentAccount");
             return new RechargeRequestInfo
             {
-                Id = Convert.ToInt32(reader["Id"]),
-                UserId = Convert.ToInt32(reader["UserId"]),
-                Username = Convert.ToString(reader["Username"]),
-                DisplayName = Convert.ToString(reader["DisplayName"]),
+                Id = GetRequiredInt32(reader, "Id"),
+                UserId = GetRequiredInt32(reader, "UserId"),
+                Username = GetRequiredString(reader, "Username"),
+                DisplayName = GetRequiredString(reader, "DisplayName"),
                 RechargeOrderNo = GetString(reader, "RechargeOrderNo"),
-                PaymentMethod = Convert.ToString(reader["PaymentMethod"]),
-                Amount = Convert.ToDecimal(reader["Amount"]),
+                PaymentMethod = paymentMethod,
+                Amount = GetRequiredDecimal(reader, "Amount"),
                 PaymentAccount = paymentAccount,
-                PaymentAccountMasked = MaskPaymentAccount(Convert.ToString(reader["PaymentMethod"]), paymentAccount),
-                RequestStatus = Convert.ToString(reader["RequestStatus"]),
-                ReviewRemark = reader["ReviewRemark"] == DBNull.Value ? string.Empty : Convert.ToString(reader["ReviewRemark"]),
+                PaymentAccountMasked = MaskPaymentAccount(paymentMethod, paymentAccount),
+                RequestStatus = GetRequiredString(reader, "RequestStatus"),
+                ReviewRemark = GetString(reader, "ReviewRemark"),
                 ReviewedByName = GetString(reader, "ReviewedByName"),
-                WalletTransactionId = reader["WalletTransactionId"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["WalletTransactionId"]),
-                SubmittedAt = Convert.ToDateTime(reader["SubmittedAt"]),
-                ReviewedAt = reader["ReviewedAt"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["ReviewedAt"])
+                WalletTransactionId = GetNullableInt32(reader, "WalletTransactionId"),
+                SubmittedAt = GetRequiredDateTime(reader, "SubmittedAt"),
+                ReviewedAt = GetNullableDateTime(reader, "ReviewedAt")
             };
         }
 
