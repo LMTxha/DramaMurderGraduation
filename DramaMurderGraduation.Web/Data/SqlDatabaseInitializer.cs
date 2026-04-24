@@ -936,14 +936,14 @@ BEGIN
     ADD RechargeOrderNo NVARCHAR(32) NULL;
 END;
 
-UPDATE dbo.RechargeRequests
-SET RechargeOrderNo = N'RC' + CONVERT(NVARCHAR(8), ISNULL(SubmittedAt, GETDATE()), 112)
-    + RIGHT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''), 8)
-WHERE ISNULL(RechargeOrderNo, N'') = N'';
+EXEC(N'UPDATE dbo.RechargeRequests
+SET RechargeOrderNo = N''RC'' + CONVERT(NVARCHAR(8), ISNULL(SubmittedAt, GETDATE()), 112)
+    + RIGHT(REPLACE(CONVERT(NVARCHAR(36), NEWID()), N''-'', N''''), 8)
+WHERE ISNULL(RechargeOrderNo, N'''') = N'''';');
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_RechargeRequests_RechargeOrderNo' AND object_id = OBJECT_ID('dbo.RechargeRequests'))
 BEGIN
-    CREATE UNIQUE INDEX UX_RechargeRequests_RechargeOrderNo ON dbo.RechargeRequests(RechargeOrderNo) WHERE RechargeOrderNo IS NOT NULL;
+    EXEC(N'CREATE UNIQUE INDEX UX_RechargeRequests_RechargeOrderNo ON dbo.RechargeRequests(RechargeOrderNo) WHERE RechargeOrderNo IS NOT NULL;');
 END;
 
 IF OBJECT_ID('dbo.UserLoginSecurityLogs', 'U') IS NULL

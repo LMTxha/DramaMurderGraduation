@@ -46,6 +46,8 @@
                 <article class="wallet-summary-card accent"><span>待审用户</span><strong><asp:Literal ID="litPendingUserCount" runat="server" /></strong><small>还未完成管理员审核的新注册用户</small></article>
                 <article class="wallet-summary-card"><span>待审充值</span><strong><asp:Literal ID="litPendingRechargeCount" runat="server" /></strong><small>需要财务确认入账的充值申请</small></article>
                 <article class="wallet-summary-card"><span>待审剧本</span><strong><asp:Literal ID="litPendingScriptCount" runat="server" /></strong><small>创作者提交后等待审核的剧本</small></article>
+                <article class="wallet-summary-card"><span>到店联系单</span><strong><asp:Literal ID="litStoreVisitCount" runat="server" /></strong><small>当前筛选结果中的到店联系单总数</small></article>
+                <article class="wallet-summary-card"><span>预约订单</span><strong><asp:Literal ID="litReservationCount" runat="server" /></strong><small>当前筛选结果中的预约订单总数</small></article>
                 <article class="wallet-summary-card"><span>剧本总数</span><strong><asp:Literal ID="litTotalScriptCount" runat="server" /></strong><small>当前剧本库条目总数</small></article>
                 <article class="wallet-summary-card"><span>今日到店</span><strong><asp:Literal ID="litTodayStoreCount" runat="server" /></strong><small>今天计划到店的联系单</small></article>
                 <article class="wallet-summary-card"><span>今日预约</span><strong><asp:Literal ID="litTodayReservationCount" runat="server" /></strong><small>今天需要履约处理的预约订单</small></article>
@@ -144,6 +146,36 @@
                     </asp:Repeater>
                 </div>
             </article>
+        </div>
+    </section>
+
+    <section class="section-block alt" id="roleMatrixAdmin" runat="server">
+        <div class="container">
+            <asp:Panel ID="pnlRoleMatrix" runat="server" Visible="false">
+                <div class="section-heading left">
+                    <h2>人员权限矩阵</h2>
+                    <p>管理员可以在这里为已审核通过的账号分配运营、财务、客服、内容和 DM 等后台角色，登录后会按能力自动裁剪菜单和功能入口。</p>
+                </div>
+                <div class="reservation-list">
+                    <asp:Repeater ID="rptRoleMatrixUsers" runat="server" OnItemCommand="rptPendingUsers_ItemCommand" OnItemDataBound="rptRoleMatrixUsers_ItemDataBound">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3><%# Eval("DisplayName") %> / <%# Eval("Username") %></h3>
+                                <p>当前角色：<%# GetRoleDisplayName(Eval("RoleCode")) %> · 审核状态：<%# Eval("ReviewStatus") %></p>
+                                <div class="form-grid single-form">
+                                    <div class="field-group full">
+                                        <label>调整角色</label>
+                                        <asp:DropDownList ID="ddlUserRole" runat="server" CssClass="input-control" />
+                                    </div>
+                                </div>
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnUpdateUserRole" runat="server" CssClass="btn-primary small" CommandName="UpdateRole" CommandArgument='<%# Eval("Id") %>'>保存角色</asp:LinkButton>
+                                </div>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </asp:Panel>
         </div>
     </section>
 

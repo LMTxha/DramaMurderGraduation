@@ -31,9 +31,71 @@ namespace DramaMurderGraduation.Web.Models
             }
         }
 
+        public bool IsFinance
+        {
+            get { return string.Equals(RoleCode, "Finance", System.StringComparison.OrdinalIgnoreCase); }
+        }
+
+        public bool IsOperations
+        {
+            get
+            {
+                return string.Equals(RoleCode, "Ops", System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(RoleCode, "Operations", System.StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public bool IsService
+        {
+            get
+            {
+                return string.Equals(RoleCode, "Service", System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(RoleCode, "CustomerService", System.StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public bool IsContentReviewer
+        {
+            get
+            {
+                return string.Equals(RoleCode, "Content", System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(RoleCode, "Editor", System.StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
         public bool CanManageGameRoom
         {
             get { return IsAdmin || IsDm; }
+        }
+
+        public bool CanAccessAdminConsole
+        {
+            get { return IsAdmin || IsFinance || IsOperations || IsService || IsContentReviewer; }
+        }
+
+        public bool CanViewAnalytics
+        {
+            get { return IsAdmin || IsFinance || IsOperations; }
+        }
+
+        public bool CanManageMembers
+        {
+            get { return IsAdmin; }
+        }
+
+        public bool CanManageFinance
+        {
+            get { return IsAdmin || IsFinance; }
+        }
+
+        public bool CanManageOperations
+        {
+            get { return IsAdmin || IsOperations || IsService; }
+        }
+
+        public bool CanManageContent
+        {
+            get { return IsAdmin || IsContentReviewer; }
         }
 
         public string RoleDisplayName
@@ -60,6 +122,26 @@ namespace DramaMurderGraduation.Web.Models
                     return "控场导演";
                 }
 
+                if (IsFinance)
+                {
+                    return "财务审核";
+                }
+
+                if (IsOperations)
+                {
+                    return "运营排期";
+                }
+
+                if (IsService)
+                {
+                    return "客服售后";
+                }
+
+                if (IsContentReviewer)
+                {
+                    return "内容审核";
+                }
+
                 return "玩家";
             }
         }
@@ -69,6 +151,11 @@ namespace DramaMurderGraduation.Web.Models
             get
             {
                 if (IsAdmin)
+                {
+                    return "~/AdminReview.aspx";
+                }
+
+                if (CanAccessAdminConsole)
                 {
                     return "~/AdminReview.aspx";
                 }

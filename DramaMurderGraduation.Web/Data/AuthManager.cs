@@ -109,6 +109,16 @@ namespace DramaMurderGraduation.Web.Data
             RequireAccess(HasAdminAccess, "admin_required");
         }
 
+        public static void RequireAdminConsole()
+        {
+            RequireAccess(HasAdminConsoleAccess, "admin_console_required");
+        }
+
+        public static void RequireAnalytics()
+        {
+            RequireAccess(HasAnalyticsAccess, "analytics_required");
+        }
+
         public static void RequireGameManager()
         {
             RequireAccess(HasGameManagerAccess, "dm_required");
@@ -122,6 +132,16 @@ namespace DramaMurderGraduation.Web.Data
         public static bool HasAdminAccess(CurrentUserInfo currentUser)
         {
             return HasApprovedUserAccess(currentUser) && currentUser.IsAdmin;
+        }
+
+        public static bool HasAdminConsoleAccess(CurrentUserInfo currentUser)
+        {
+            return HasApprovedUserAccess(currentUser) && currentUser.CanAccessAdminConsole;
+        }
+
+        public static bool HasAnalyticsAccess(CurrentUserInfo currentUser)
+        {
+            return HasApprovedUserAccess(currentUser) && currentUser.CanViewAnalytics;
         }
 
         public static bool HasGameManagerAccess(CurrentUserInfo currentUser)
@@ -139,6 +159,12 @@ namespace DramaMurderGraduation.Web.Data
         {
             var currentUser = GetCurrentUser();
             return HasGameManagerAccess(currentUser) ? currentUser : null;
+        }
+
+        public static CurrentUserInfo GetBackofficeUser()
+        {
+            var currentUser = GetCurrentUser();
+            return HasAdminConsoleAccess(currentUser) ? currentUser : null;
         }
 
         private static void RequireAccess(Func<CurrentUserInfo, bool> accessPredicate, string deniedReason = null)

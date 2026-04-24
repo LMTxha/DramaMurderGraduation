@@ -14,13 +14,23 @@ namespace DramaMurderGraduation.Web
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
         private readonly ContentRepository _contentRepository = new ContentRepository();
+        protected bool CanManageMembers { get; private set; }
+        protected bool CanManageFinance { get; private set; }
+        protected bool CanManageOperations { get; private set; }
+        protected bool CanManageContent { get; private set; }
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            AuthManager.RequireAdmin();
+            AuthManager.RequireAdminConsole();
+            ApplyCapabilityState();
 
             if (string.Equals(Request.QueryString["export"], "finance", StringComparison.OrdinalIgnoreCase))
             {
+                if (!EnsureCapability(CanManageFinance, "当前账号没有导出财务报表的权限。"))
+                {
+                    return;
+                }
+
                 ExportFinanceAuditCsv();
                 return;
             }
@@ -48,19 +58,39 @@ namespace DramaMurderGraduation.Web
 
         protected void rptPendingUsers_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageMembers, "当前账号不能处理账号审核和角色管理。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(Convert.ToString(e.CommandArgument), out var userId))
             {
                 return;
             }
 
             var remarkBox = e.Item.FindControl("txtUserRemark") as TextBox;
-            var success = _accountRepository.ReviewUser(userId, e.CommandName == "ApproveUser", remarkBox?.Text.Trim(), out var message);
+            bool success;
+            string message;
+            if (string.Equals(e.CommandName, "UpdateRole", StringComparison.OrdinalIgnoreCase))
+            {
+                var roleList = e.Item.FindControl("ddlUserRole") as DropDownList;
+                success = _accountRepository.UpdateUserRole(userId, roleList == null ? string.Empty : roleList.SelectedValue, out message);
+            }
+            else
+            {
+                success = _accountRepository.ReviewUser(userId, e.CommandName == "ApproveUser", remarkBox?.Text.Trim(), out message);
+            }
             ShowMessage(message, success);
             BindAll();
         }
 
         protected void rptPendingScripts_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageContent, "当前账号不能处理剧本审核。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(Convert.ToString(e.CommandArgument), out var scriptId))
             {
                 return;
@@ -74,13 +104,18 @@ namespace DramaMurderGraduation.Web
 
         protected void rptPendingRechargeRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageFinance, "当前账号不能处理充值审核。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(Convert.ToString(e.CommandArgument), out var requestId))
             {
                 return;
             }
 
             var remarkBox = e.Item.FindControl("txtRechargeRemark") as TextBox;
-            var currentUser = AuthManager.GetAdminUser();
+            var currentUser = AuthManager.GetCurrentUser();
             var success = _accountRepository.ReviewRechargeRequest(
                 requestId,
                 e.CommandName == "ApproveRecharge",
@@ -94,12 +129,17 @@ namespace DramaMurderGraduation.Web
 
         protected void rptStoreVisitRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能处理到店联系单。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(Convert.ToString(e.CommandArgument), out var requestId))
             {
                 return;
             }
 
-            var currentUser = AuthManager.GetAdminUser();
+            var currentUser = AuthManager.GetCurrentUser();
             var assignedRoomBox = e.Item.FindControl("txtAssignedRoomName") as TextBox;
             var remarkBox = e.Item.FindControl("txtStoreRemark") as TextBox;
             var replyBox = e.Item.FindControl("txtStoreReply") as TextBox;
@@ -125,12 +165,17 @@ namespace DramaMurderGraduation.Web
 
         protected void rptReservationOrders_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能处理预约履约。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(Convert.ToString(e.CommandArgument), out var reservationId))
             {
                 return;
             }
 
-            var currentUser = AuthManager.GetAdminUser();
+            var currentUser = AuthManager.GetCurrentUser();
             var remarkBox = e.Item.FindControl("txtReservationRemark") as TextBox;
             var replyBox = e.Item.FindControl("txtReservationReply") as TextBox;
             var reservationStatus = MapReservationStatus(e.CommandName);
@@ -155,12 +200,17 @@ namespace DramaMurderGraduation.Web
 
         protected void rptAfterSaleRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能处理售后和退款。"))
+            {
+                return;
+            }
+
             if (e.CommandName != "ReviewAfterSale" || !int.TryParse(Convert.ToString(e.CommandArgument), out var requestId))
             {
                 return;
             }
 
-            var currentUser = AuthManager.GetAdminUser();
+            var currentUser = AuthManager.GetCurrentUser();
             var statusList = e.Item.FindControl("ddlAfterSaleStatus") as DropDownList;
             var replyBox = e.Item.FindControl("txtAfterSaleReply") as TextBox;
             var rejectReasonBox = e.Item.FindControl("txtAfterSaleRejectReason") as TextBox;
@@ -180,7 +230,12 @@ namespace DramaMurderGraduation.Web
 
         protected void btnCheckInReservation_Click(object sender, EventArgs e)
         {
-            var currentUser = AuthManager.GetAdminUser();
+            if (!EnsureCapability(CanManageOperations, "当前账号不能执行到店核销。"))
+            {
+                return;
+            }
+
+            var currentUser = AuthManager.GetCurrentUser();
             var success = _contentRepository.CheckInReservationByCode(
                 txtCheckInCode.Text.Trim(),
                 currentUser == null ? 0 : currentUser.UserId,
@@ -197,6 +252,11 @@ namespace DramaMurderGraduation.Web
 
         protected void rptServiceMessages_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能回复服务会话。"))
+            {
+                return;
+            }
+
             if (e.CommandName != "ReplyService")
             {
                 return;
@@ -209,7 +269,7 @@ namespace DramaMurderGraduation.Web
             }
 
             var replyBox = e.Item.FindControl("txtServiceReply") as TextBox;
-            var currentUser = AuthManager.GetAdminUser();
+            var currentUser = AuthManager.GetCurrentUser();
             var success = _contentRepository.AddServiceMessage(
                 parts[0],
                 businessId,
@@ -224,6 +284,11 @@ namespace DramaMurderGraduation.Web
 
         protected void rptAdminReviews_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageContent, "当前账号不能处理评价审核。"))
+            {
+                return;
+            }
+
             if (e.CommandName != "ModerateReview" || !int.TryParse(Convert.ToString(e.CommandArgument), out var reviewId))
             {
                 return;
@@ -232,7 +297,7 @@ namespace DramaMurderGraduation.Web
             var featuredBox = e.Item.FindControl("chkReviewFeatured") as CheckBox;
             var hiddenBox = e.Item.FindControl("chkReviewHidden") as CheckBox;
             var replyBox = e.Item.FindControl("txtReviewReply") as TextBox;
-            var currentUser = AuthManager.GetAdminUser();
+            var currentUser = AuthManager.GetCurrentUser();
             var success = _contentRepository.ModerateReview(
                 reviewId,
                 featuredBox != null && featuredBox.Checked,
@@ -247,6 +312,11 @@ namespace DramaMurderGraduation.Web
 
         protected void btnIssueCoupon_Click(object sender, EventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能发放优惠券。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(ddlCouponUser.SelectedValue, out var userId) || userId <= 0)
             {
                 ShowMessage("请选择要发放优惠券的用户。", false);
@@ -286,6 +356,11 @@ namespace DramaMurderGraduation.Web
 
         protected void rptAllScripts_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageContent, "当前账号不能管理剧本库。"))
+            {
+                return;
+            }
+
             if (e.CommandName != "DeleteScript")
             {
                 return;
@@ -303,6 +378,11 @@ namespace DramaMurderGraduation.Web
 
         protected void btnCreateSession_Click(object sender, EventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能创建排期场次。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(ddlScheduleScript.SelectedValue, out var scriptId) || scriptId <= 0)
             {
                 ShowMessage("请选择要排期的剧本。", false);
@@ -351,6 +431,11 @@ namespace DramaMurderGraduation.Web
 
         protected void btnPublishAnnouncement_Click(object sender, EventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations || CanManageContent, "当前账号不能发布站内公告。"))
+            {
+                return;
+            }
+
             var success = _contentRepository.CreateAnnouncement(
                 txtAnnouncementTitle.Text.Trim(),
                 txtAnnouncementSummary.Text.Trim(),
@@ -363,6 +448,11 @@ namespace DramaMurderGraduation.Web
 
         protected void rptAdminRooms_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
+            if (!EnsureCapability(CanManageOperations, "当前账号不能管理房间状态。"))
+            {
+                return;
+            }
+
             if (!int.TryParse(Convert.ToString(e.CommandArgument), out var roomId))
             {
                 return;
@@ -377,6 +467,65 @@ namespace DramaMurderGraduation.Web
             var success = _contentRepository.UpdateRoomStatus(roomId, roomStatus, out var message);
             ShowMessage(message, success);
             BindAll();
+        }
+
+        protected void rptRoleMatrixUsers_ItemDataBound(object sender, RepeaterItemEventArgs e)
+        {
+            if (e.Item.ItemType != ListItemType.Item && e.Item.ItemType != ListItemType.AlternatingItem)
+            {
+                return;
+            }
+
+            var user = e.Item.DataItem as UserAccountInfo;
+            var roleList = e.Item.FindControl("ddlUserRole") as DropDownList;
+            if (user == null || roleList == null)
+            {
+                return;
+            }
+
+            roleList.Items.Clear();
+            roleList.Items.Add(new ListItem("玩家", "Player"));
+            roleList.Items.Add(new ListItem("主持 DM", "DM"));
+            roleList.Items.Add(new ListItem("主持人", "Host"));
+            roleList.Items.Add(new ListItem("控场导演", "Director"));
+            roleList.Items.Add(new ListItem("财务审核", "Finance"));
+            roleList.Items.Add(new ListItem("运营排期", "Ops"));
+            roleList.Items.Add(new ListItem("客服售后", "Service"));
+            roleList.Items.Add(new ListItem("内容审核", "Content"));
+            roleList.Items.Add(new ListItem("系统管理员", "Admin"));
+
+            var selectedItem = roleList.Items.FindByValue(user.RoleCode ?? string.Empty);
+            if (selectedItem != null)
+            {
+                roleList.ClearSelection();
+                selectedItem.Selected = true;
+            }
+        }
+
+        protected string GetRoleDisplayName(object roleCode)
+        {
+            var currentUser = new CurrentUserInfo { RoleCode = Convert.ToString(roleCode), ReviewStatus = "Approved" };
+            return currentUser.RoleDisplayName;
+        }
+
+        private void ApplyCapabilityState()
+        {
+            var currentUser = AuthManager.GetBackofficeUser();
+            CanManageMembers = currentUser != null && currentUser.CanManageMembers;
+            CanManageFinance = currentUser != null && currentUser.CanManageFinance;
+            CanManageOperations = currentUser != null && currentUser.CanManageOperations;
+            CanManageContent = currentUser != null && currentUser.CanManageContent;
+        }
+
+        private bool EnsureCapability(bool allowed, string deniedMessage)
+        {
+            if (allowed)
+            {
+                return true;
+            }
+
+            ShowMessage(deniedMessage, false);
+            return false;
         }
 
         public string TranslateAuditStatus(object value)
@@ -625,6 +774,13 @@ namespace DramaMurderGraduation.Web
 
             rptPendingUsers.DataSource = pendingUsers;
             rptPendingUsers.DataBind();
+
+            rptRoleMatrixUsers.DataSource = approvedUsers
+                .OrderBy(item => item.DisplayName)
+                .Take(80)
+                .ToList();
+            rptRoleMatrixUsers.DataBind();
+            pnlRoleMatrix.Visible = CanManageMembers;
 
             rptPendingRechargeRequests.DataSource = pendingRechargeRequests;
             rptPendingRechargeRequests.DataBind();

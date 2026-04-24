@@ -23,6 +23,8 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Repeater rptAdminTodoItems;
         protected global::System.Web.UI.WebControls.Repeater rptPendingUsers;
         protected global::System.Web.UI.WebControls.Repeater rptPendingRechargeRequests;
+        protected global::System.Web.UI.WebControls.Panel pnlRoleMatrix;
+        protected global::System.Web.UI.WebControls.Repeater rptRoleMatrixUsers;
         protected global::System.Web.UI.WebControls.TextBox txtAdminKeyword;
         protected global::System.Web.UI.WebControls.DropDownList ddlStoreStatusFilter;
         protected global::System.Web.UI.WebControls.DropDownList ddlReservationStatusFilter;

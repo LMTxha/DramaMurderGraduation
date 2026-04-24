@@ -511,6 +511,46 @@ WHERE Id = @UserId;";
             }
         }
 
+        public bool UpdateUserRole(int userId, string roleCode, out string message)
+        {
+            var normalizedRole = NormalizeRoleCode(roleCode);
+            if (string.IsNullOrWhiteSpace(normalizedRole))
+            {
+                message = "未识别的角色类型。";
+                return false;
+            }
+
+            const string sql = @"
+UPDATE dbo.Users
+SET RoleCode = @RoleCode
+WHERE Id = @UserId;
+
+IF @@ROWCOUNT = 0
+BEGIN
+    RAISERROR(N'未找到对应账号。', 16, 1);
+    RETURN;
+END;";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@RoleCode", normalizedRole);
+                command.Parameters.AddWithValue("@UserId", userId);
+                connection.Open();
+                try
+                {
+                    command.ExecuteNonQuery();
+                    message = "账号角色已更新。";
+                    return true;
+                }
+                catch (SqlException ex)
+                {
+                    message = ex.Message;
+                    return false;
+                }
+            }
+        }
+
         public UserAccountInfo GetUserById(int userId)
         {
             const string sql = @"
@@ -3425,6 +3465,36 @@ END;";
         private static string NormalizePublicUserCode(string publicUserCode)
         {
             return (publicUserCode ?? string.Empty).Trim().ToUpperInvariant();
+        }
+
+        private static string NormalizeRoleCode(string roleCode)
+        {
+            switch ((roleCode ?? string.Empty).Trim())
+            {
+                case "Admin":
+                    return "Admin";
+                case "Player":
+                    return "Player";
+                case "DM":
+                    return "DM";
+                case "Host":
+                    return "Host";
+                case "Director":
+                    return "Director";
+                case "Finance":
+                    return "Finance";
+                case "Ops":
+                case "Operations":
+                    return "Ops";
+                case "Service":
+                case "CustomerService":
+                    return "Service";
+                case "Content":
+                case "Editor":
+                    return "Content";
+                default:
+                    return string.Empty;
+            }
         }
 
         private static string NormalizeMomentVisibility(string visibility)
