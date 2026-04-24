@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using DramaMurderGraduation.Web.Data;
 using DramaMurderGraduation.Web.Models;
 
@@ -13,6 +13,18 @@ namespace DramaMurderGraduation.Web
             if (AuthManager.IsLoggedIn())
             {
                 Response.Redirect("~/Default.aspx");
+                return;
+            }
+
+            if (IsPostBack)
+            {
+                return;
+            }
+
+            var notice = Request.QueryString["notice"];
+            if (string.Equals(notice, "approval_required", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowMessage("当前账号状态已变更，请使用已审核通过的账号重新登录。", false);
             }
         }
 

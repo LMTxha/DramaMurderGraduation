@@ -14,7 +14,7 @@ namespace DramaMurderGraduation.Web
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            AuthManager.RequireLogin();
+            AuthManager.RequireApprovedUser();
 
             if (!IsPostBack)
             {
@@ -445,8 +445,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以正式开局。");
             }
@@ -466,8 +466,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以推进房间阶段。");
             }
@@ -487,8 +487,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以切换阶段。");
             }
@@ -508,8 +508,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以执行正式结算。");
             }
@@ -529,8 +529,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以发布房间公告。");
             }
@@ -561,8 +561,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以发放线索。");
             }
@@ -582,8 +582,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以设置结案真相。");
             }
@@ -619,8 +619,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以保存控场备注。");
             }
@@ -646,8 +646,8 @@ namespace DramaMurderGraduation.Web
                 return Fail("未找到对应的游戏房间。");
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.CanManageGameRoom)
+            var currentUser = AuthManager.GetGameManagerUser();
+            if (currentUser == null)
             {
                 return Fail("只有管理员或 DM 可以开启阶段计时。");
             }
@@ -695,3 +695,4 @@ namespace DramaMurderGraduation.Web
         }
     }
 }
+

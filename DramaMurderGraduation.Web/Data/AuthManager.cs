@@ -17,7 +17,19 @@ namespace DramaMurderGraduation.Web.Data
 
         public static bool IsLoggedIn()
         {
-            return GetCurrentUser() != null;
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
+            {
+                return false;
+            }
+
+            if (HasApprovedUserAccess(currentUser))
+            {
+                return true;
+            }
+
+            SignOut();
+            return false;
         }
 
         public static void SignIn(CurrentUserInfo user)
@@ -74,25 +86,91 @@ namespace DramaMurderGraduation.Web.Data
 
         public static void RequireLogin()
         {
-            var currentUser = GetCurrentUser();
-            if (currentUser != null)
+            if (IsLoggedIn())
             {
                 return;
             }
 
-            var returnUrl = HttpUtility.UrlEncode(HttpContext.Current.Request.RawUrl);
-            HttpContext.Current.Response.Redirect("~/Login.aspx?returnUrl=" + returnUrl, true);
+            RedirectToLogin();
+        }
+
+        public static void RequireApprovedUser()
+        {
+            RequireAccess(HasApprovedUserAccess, "approval_required");
         }
 
         public static void RequireAdmin()
         {
+            RequireAccess(HasAdminAccess, "admin_required");
+        }
+
+        public static void RequireGameManager()
+        {
+            RequireAccess(HasGameManagerAccess, "dm_required");
+        }
+
+        public static bool HasApprovedUserAccess(CurrentUserInfo currentUser)
+        {
+            return currentUser != null
+                && string.Equals(currentUser.ReviewStatus, "Approved", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool HasAdminAccess(CurrentUserInfo currentUser)
+        {
+            return HasApprovedUserAccess(currentUser) && currentUser.IsAdmin;
+        }
+
+        public static bool HasGameManagerAccess(CurrentUserInfo currentUser)
+        {
+            return HasApprovedUserAccess(currentUser) && currentUser.CanManageGameRoom;
+        }
+
+        public static CurrentUserInfo GetAdminUser()
+        {
             var currentUser = GetCurrentUser();
-            if (currentUser != null && currentUser.IsAdmin)
+            return HasAdminAccess(currentUser) ? currentUser : null;
+        }
+
+        public static CurrentUserInfo GetGameManagerUser()
+        {
+            var currentUser = GetCurrentUser();
+            return HasGameManagerAccess(currentUser) ? currentUser : null;
+        }
+
+        private static void RequireAccess(Func<CurrentUserInfo, bool> accessPredicate, string deniedReason = null)
+        {
+            var currentUser = GetCurrentUser();
+            if (accessPredicate != null && accessPredicate(currentUser))
             {
                 return;
             }
 
-            HttpContext.Current.Response.Redirect("~/Login.aspx", true);
+            if (currentUser == null)
+            {
+                RedirectToLogin();
+                return;
+            }
+
+            if (!HasApprovedUserAccess(currentUser))
+            {
+                SignOut();
+                RedirectToLogin(string.IsNullOrWhiteSpace(deniedReason) ? "approval_required" : deniedReason);
+                return;
+            }
+
+            HttpContext.Current.Response.Redirect("~/Default.aspx", true);
+        }
+
+        private static void RedirectToLogin(string notice = null)
+        {
+            var returnUrl = HttpUtility.UrlEncode(HttpContext.Current.Request.RawUrl);
+            var redirectUrl = "~/Login.aspx?returnUrl=" + returnUrl;
+            if (!string.IsNullOrWhiteSpace(notice))
+            {
+                redirectUrl += "&notice=" + HttpUtility.UrlEncode(notice);
+            }
+
+            HttpContext.Current.Response.Redirect(redirectUrl, true);
         }
     }
 }

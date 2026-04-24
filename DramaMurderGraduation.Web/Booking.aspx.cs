@@ -18,7 +18,7 @@ namespace DramaMurderGraduation.Web
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            AuthManager.RequireLogin();
+            AuthManager.RequireApprovedUser();
             _scriptIdFilter = ParseScriptIdFilter();
 
             if (!IsPostBack)

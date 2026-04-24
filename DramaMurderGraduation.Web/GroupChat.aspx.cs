@@ -19,7 +19,7 @@ namespace DramaMurderGraduation.Web
                 Page.Form.Enctype = "multipart/form-data";
             }
 
-            AuthManager.RequireLogin();
+            AuthManager.RequireApprovedUser();
             _currentUser = AuthManager.GetCurrentUser();
 
             if (!int.TryParse(Request.QueryString["groupId"], out var groupId) || groupId <= 0)

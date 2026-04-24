@@ -16,7 +16,7 @@ namespace DramaMurderGraduation.Web
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            AuthManager.RequireLogin();
+            AuthManager.RequireApprovedUser();
 
             if (!IsPostBack)
             {
