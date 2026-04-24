@@ -12,5 +12,14 @@ namespace DramaMurderGraduation.Web.Models
         public string Content { get; set; }
         public DateTime ReviewDate { get; set; }
         public string HighlightTag { get; set; }
+        public int? UserId { get; set; }
+        public int? ReservationId { get; set; }
+        public string RoomName { get; set; }
+        public DateTime? SessionDateTime { get; set; }
+        public decimal ReservationAmount { get; set; }
+        public string ReservationStatus { get; set; }
+        public bool IsFeatured { get; set; }
+        public bool IsHidden { get; set; }
+        public string AdminReply { get; set; }
     }
 }

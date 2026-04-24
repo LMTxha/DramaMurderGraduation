@@ -12,6 +12,8 @@ namespace DramaMurderGraduation.Web.Models
         public string TransferType { get; set; }
         public decimal Amount { get; set; }
         public string Note { get; set; }
+        public string Status { get; set; }
+        public DateTime? ClaimedAt { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

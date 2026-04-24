@@ -360,6 +360,138 @@ ORDER BY SnapshotDate DESC, Id DESC;";
             return list.Count > 0 ? list[0] : null;
         }
 
+        public AnalyticsMetricInfo GetOperationalAnalyticsMetric(DateTime startDate, DateTime endDate)
+        {
+            const string sql = @"
+DECLARE @EndExclusive DATETIME = DATEADD(day, 1, @EndDate);
+
+WITH RangeReservations AS
+(
+    SELECT
+        r.Id,
+        r.UserId,
+        ISNULL(r.TotalAmount, ISNULL(r.UnitPrice, se.BasePrice) * r.PlayerCount) AS TotalAmount,
+        r.Status,
+        r.CreatedAt
+    FROM dbo.Reservations r
+    INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
+    WHERE r.CreatedAt >= @StartDate
+      AND r.CreatedAt < @EndExclusive
+),
+RangeSessions AS
+(
+    SELECT
+        s.Id,
+        s.HostUserId,
+        s.HostName,
+        s.SessionDateTime,
+        sc.DurationMinutes
+    FROM dbo.Sessions s
+    INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+    WHERE s.SessionDateTime >= @StartDate
+      AND s.SessionDateTime < @EndExclusive
+),
+OrderUsers AS
+(
+    SELECT DISTINCT UserId
+    FROM RangeReservations
+    WHERE UserId IS NOT NULL
+),
+ReturningUsers AS
+(
+    SELECT DISTINCT ou.UserId
+    FROM OrderUsers ou
+    WHERE EXISTS
+    (
+        SELECT 1
+        FROM dbo.Reservations r
+        WHERE r.UserId = ou.UserId
+          AND r.CreatedAt < @StartDate
+          AND r.Status IN (N'已确认', N'玩家已确认', N'已到店', N'已完成')
+    )
+)
+SELECT
+    GETDATE() AS SnapshotDate,
+    @StartDate AS StartDate,
+    @EndDate AS EndDate,
+    (SELECT COUNT(1) FROM OrderUsers) AS ActiveUsers,
+    CAST(ISNULL((SELECT AVG(CAST(DurationMinutes AS DECIMAL(10,2))) FROM RangeSessions), 0) AS DECIMAL(10,2)) AS AverageSessionMinutes,
+    booking.TotalBookings,
+    booking.RevenueAmount,
+    CAST(CASE WHEN booking.TotalBookings = 0 THEN 0 ELSE booking.ConfirmedBookings * 100.0 / booking.TotalBookings END AS DECIMAL(10,2)) AS ConversionRate,
+    booking.ConfirmedBookings,
+    booking.CompletedBookings,
+    CAST(CASE WHEN booking.ConfirmedBookings = 0 THEN 0 ELSE booking.RevenueAmount / booking.ConfirmedBookings END AS DECIMAL(10,2)) AS AverageOrderValue,
+    CAST(CASE WHEN users.OrderingUsers = 0 THEN 0 ELSE users.ReturningUsers * 100.0 / users.OrderingUsers END AS DECIMAL(10,2)) AS RepurchaseRate,
+    CAST(CASE WHEN booking.TotalBookings = 0 THEN 0 ELSE refund.RefundCount * 100.0 / booking.TotalBookings END AS DECIMAL(10,2)) AS RefundRate,
+    sessionStat.DmSessionCount,
+    refund.RefundCount,
+    refund.RefundAmount,
+    users.OrderingUsers,
+    users.ReturningUsers
+FROM
+(
+    SELECT
+        COUNT(1) AS TotalBookings,
+        SUM(CASE WHEN Status IN (N'已确认', N'玩家已确认', N'已到店', N'已完成') THEN 1 ELSE 0 END) AS ConfirmedBookings,
+        SUM(CASE WHEN Status = N'已完成' THEN 1 ELSE 0 END) AS CompletedBookings,
+        CAST(ISNULL(SUM(CASE WHEN Status <> N'已取消' THEN TotalAmount ELSE 0 END), 0) AS DECIMAL(10,2)) AS RevenueAmount
+    FROM RangeReservations
+) booking
+CROSS JOIN
+(
+    SELECT
+        (SELECT COUNT(1) FROM OrderUsers) AS OrderingUsers,
+        (SELECT COUNT(1) FROM ReturningUsers) AS ReturningUsers
+) users
+CROSS JOIN
+(
+    SELECT
+        COUNT(1) AS DmSessionCount
+    FROM RangeSessions
+    WHERE HostUserId IS NOT NULL OR ISNULL(HostName, N'') <> N''
+) sessionStat
+CROSS JOIN
+(
+    SELECT
+        COUNT(1) AS RefundCount,
+        CAST(ISNULL(SUM(CASE WHEN ISNULL(RefundedAmount, 0) > 0 THEN RefundedAmount ELSE RequestedAmount END), 0) AS DECIMAL(10,2)) AS RefundAmount
+    FROM dbo.AfterSaleRequests
+    WHERE RequestType = N'退款'
+      AND Status = N'已完成'
+      AND ISNULL(ProcessedAt, CreatedAt) >= @StartDate
+      AND ISNULL(ProcessedAt, CreatedAt) < @EndExclusive
+) refund;";
+
+            var list = ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@StartDate", startDate.Date);
+                command.Parameters.AddWithValue("@EndDate", endDate.Date);
+            }, reader => new AnalyticsMetricInfo
+            {
+                SnapshotDate = GetDateTime(reader, "SnapshotDate"),
+                StartDate = GetDateTime(reader, "StartDate"),
+                EndDate = GetDateTime(reader, "EndDate"),
+                ActiveUsers = GetInt32(reader, "ActiveUsers"),
+                AverageSessionMinutes = GetDecimal(reader, "AverageSessionMinutes"),
+                TotalBookings = GetInt32(reader, "TotalBookings"),
+                RevenueAmount = GetDecimal(reader, "RevenueAmount"),
+                ConversionRate = GetDecimal(reader, "ConversionRate"),
+                ConfirmedBookings = GetInt32(reader, "ConfirmedBookings"),
+                CompletedBookings = GetInt32(reader, "CompletedBookings"),
+                AverageOrderValue = GetDecimal(reader, "AverageOrderValue"),
+                RepurchaseRate = GetDecimal(reader, "RepurchaseRate"),
+                RefundRate = GetDecimal(reader, "RefundRate"),
+                DmSessionCount = GetInt32(reader, "DmSessionCount"),
+                RefundCount = GetInt32(reader, "RefundCount"),
+                RefundAmount = GetDecimal(reader, "RefundAmount"),
+                OrderingUsers = GetInt32(reader, "OrderingUsers"),
+                ReturningUsers = GetInt32(reader, "ReturningUsers")
+            });
+
+            return list.Count > 0 ? list[0] : null;
+        }
+
         public IList<HeatmapZoneInfo> GetHeatmapZones()
         {
             const string sql = @"

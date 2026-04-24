@@ -8,5 +8,6 @@ namespace DramaMurderGraduation.Web.Models
         public string Phone { get; set; }
         public int PlayerCount { get; set; }
         public string Remark { get; set; }
+        public int? CouponId { get; set; }
     }
 }
