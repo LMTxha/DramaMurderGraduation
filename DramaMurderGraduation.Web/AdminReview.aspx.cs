@@ -74,7 +74,7 @@ namespace DramaMurderGraduation.Web
             }
 
             var remarkBox = e.Item.FindControl("txtRechargeRemark") as TextBox;
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var success = _accountRepository.ReviewRechargeRequest(
                 requestId,
                 e.CommandName == "ApproveRecharge",
@@ -93,7 +93,7 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var assignedRoomBox = e.Item.FindControl("txtAssignedRoomName") as TextBox;
             var remarkBox = e.Item.FindControl("txtStoreRemark") as TextBox;
             var replyBox = e.Item.FindControl("txtStoreReply") as TextBox;
@@ -124,7 +124,7 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var remarkBox = e.Item.FindControl("txtReservationRemark") as TextBox;
             var replyBox = e.Item.FindControl("txtReservationReply") as TextBox;
             var reservationStatus = MapReservationStatus(e.CommandName);
@@ -154,7 +154,7 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var statusList = e.Item.FindControl("ddlAfterSaleStatus") as DropDownList;
             var replyBox = e.Item.FindControl("txtAfterSaleReply") as TextBox;
             var rejectReasonBox = e.Item.FindControl("txtAfterSaleRejectReason") as TextBox;
@@ -174,7 +174,7 @@ namespace DramaMurderGraduation.Web
 
         protected void btnCheckInReservation_Click(object sender, EventArgs e)
         {
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var success = _contentRepository.CheckInReservationByCode(
                 txtCheckInCode.Text.Trim(),
                 currentUser == null ? 0 : currentUser.UserId,
@@ -203,7 +203,7 @@ namespace DramaMurderGraduation.Web
             }
 
             var replyBox = e.Item.FindControl("txtServiceReply") as TextBox;
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var success = _contentRepository.AddServiceMessage(
                 parts[0],
                 businessId,
@@ -226,7 +226,7 @@ namespace DramaMurderGraduation.Web
             var featuredBox = e.Item.FindControl("chkReviewFeatured") as CheckBox;
             var hiddenBox = e.Item.FindControl("chkReviewHidden") as CheckBox;
             var replyBox = e.Item.FindControl("txtReviewReply") as TextBox;
-            var currentUser = AuthManager.GetCurrentUser();
+            var currentUser = AuthManager.GetAdminUser();
             var success = _contentRepository.ModerateReview(
                 reviewId,
                 featuredBox != null && featuredBox.Checked,

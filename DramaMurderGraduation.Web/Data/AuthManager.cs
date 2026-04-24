@@ -57,6 +57,11 @@ namespace DramaMurderGraduation.Web.Data
             };
         }
 
+        public static string GetDefaultLandingUrl(CurrentUserInfo currentUser)
+        {
+            return currentUser == null ? "~/Default.aspx" : currentUser.DefaultLandingUrl;
+        }
+
         public static void SignOut()
         {
             if (HttpContext.Current?.Session == null)
@@ -111,8 +116,7 @@ namespace DramaMurderGraduation.Web.Data
 
         public static bool HasApprovedUserAccess(CurrentUserInfo currentUser)
         {
-            return currentUser != null
-                && string.Equals(currentUser.ReviewStatus, "Approved", StringComparison.OrdinalIgnoreCase);
+            return currentUser != null && currentUser.IsApproved;
         }
 
         public static bool HasAdminAccess(CurrentUserInfo currentUser)

@@ -54,21 +54,7 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            if (string.Equals(user.RoleCode, "Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                Response.Redirect("~/AdminReview.aspx");
-                return;
-            }
-
-            if (string.Equals(user.RoleCode, "DM", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(user.RoleCode, "Host", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(user.RoleCode, "Director", StringComparison.OrdinalIgnoreCase))
-            {
-                Response.Redirect("~/DmDashboard.aspx");
-                return;
-            }
-
-            Response.Redirect("~/CreatorCenter.aspx");
+            Response.Redirect(AuthManager.GetDefaultLandingUrl(AuthManager.CreateCurrentUser(user)));
         }
 
         private void ShowMessage(string message, bool success)
