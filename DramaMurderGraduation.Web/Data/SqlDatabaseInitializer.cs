@@ -114,6 +114,19 @@ namespace DramaMurderGraduation.Web.Data
                     return false;
                 }
 
+                if (File.Exists(mdfPath) && File.Exists(ldfPath))
+                {
+                    command.Parameters.Clear();
+                    command.CommandText = $@"
+CREATE DATABASE [{databaseName}]
+ON
+(FILENAME = N'{EscapeSqlLiteral(mdfPath)}'),
+(FILENAME = N'{EscapeSqlLiteral(ldfPath)}')
+FOR ATTACH;";
+                    command.ExecuteNonQuery();
+                    return false;
+                }
+
                 command.Parameters.Clear();
                 command.CommandText = $@"
 CREATE DATABASE [{databaseName}]
