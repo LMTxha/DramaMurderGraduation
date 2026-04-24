@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
+using System.Web;
 using System.Web.UI.WebControls;
 using DramaMurderGraduation.Web.Data;
 using DramaMurderGraduation.Web.Models;
@@ -145,6 +147,137 @@ namespace DramaMurderGraduation.Web
             BindAll();
         }
 
+        protected void rptAfterSaleRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
+        {
+            if (e.CommandName != "ReviewAfterSale" || !int.TryParse(Convert.ToString(e.CommandArgument), out var requestId))
+            {
+                return;
+            }
+
+            var currentUser = AuthManager.GetCurrentUser();
+            var statusList = e.Item.FindControl("ddlAfterSaleStatus") as DropDownList;
+            var replyBox = e.Item.FindControl("txtAfterSaleReply") as TextBox;
+            var rejectReasonBox = e.Item.FindControl("txtAfterSaleRejectReason") as TextBox;
+            var remarkBox = e.Item.FindControl("txtAfterSaleRemark") as TextBox;
+            var success = _contentRepository.ReviewAfterSaleRequest(
+                requestId,
+                statusList?.SelectedValue,
+                replyBox?.Text.Trim(),
+                remarkBox?.Text.Trim(),
+                rejectReasonBox?.Text.Trim(),
+                currentUser == null ? 0 : currentUser.UserId,
+                out var message);
+
+            ShowMessage(message, success);
+            BindAll();
+        }
+
+        protected void btnCheckInReservation_Click(object sender, EventArgs e)
+        {
+            var currentUser = AuthManager.GetCurrentUser();
+            var success = _contentRepository.CheckInReservationByCode(
+                txtCheckInCode.Text.Trim(),
+                currentUser == null ? 0 : currentUser.UserId,
+                out var message);
+
+            ShowMessage(message, success);
+            if (success)
+            {
+                txtCheckInCode.Text = string.Empty;
+            }
+
+            BindAll();
+        }
+
+        protected void rptServiceMessages_ItemCommand(object source, RepeaterCommandEventArgs e)
+        {
+            if (e.CommandName != "ReplyService")
+            {
+                return;
+            }
+
+            var parts = Convert.ToString(e.CommandArgument).Split('|');
+            if (parts.Length != 2 || !int.TryParse(parts[1], out var businessId))
+            {
+                return;
+            }
+
+            var replyBox = e.Item.FindControl("txtServiceReply") as TextBox;
+            var currentUser = AuthManager.GetCurrentUser();
+            var success = _contentRepository.AddServiceMessage(
+                parts[0],
+                businessId,
+                currentUser == null ? 0 : currentUser.UserId,
+                true,
+                replyBox?.Text.Trim(),
+                out var message);
+
+            ShowMessage(message, success);
+            BindAll();
+        }
+
+        protected void rptAdminReviews_ItemCommand(object source, RepeaterCommandEventArgs e)
+        {
+            if (e.CommandName != "ModerateReview" || !int.TryParse(Convert.ToString(e.CommandArgument), out var reviewId))
+            {
+                return;
+            }
+
+            var featuredBox = e.Item.FindControl("chkReviewFeatured") as CheckBox;
+            var hiddenBox = e.Item.FindControl("chkReviewHidden") as CheckBox;
+            var replyBox = e.Item.FindControl("txtReviewReply") as TextBox;
+            var currentUser = AuthManager.GetCurrentUser();
+            var success = _contentRepository.ModerateReview(
+                reviewId,
+                featuredBox != null && featuredBox.Checked,
+                hiddenBox != null && hiddenBox.Checked,
+                replyBox?.Text.Trim(),
+                currentUser == null ? 0 : currentUser.UserId,
+                out var message);
+
+            ShowMessage(message, success);
+            BindAll();
+        }
+
+        protected void btnIssueCoupon_Click(object sender, EventArgs e)
+        {
+            if (!int.TryParse(ddlCouponUser.SelectedValue, out var userId) || userId <= 0)
+            {
+                ShowMessage("请选择要发放优惠券的用户。", false);
+                return;
+            }
+
+            if (!decimal.TryParse(txtCouponAmount.Text.Trim(), out var discountAmount) || discountAmount <= 0)
+            {
+                ShowMessage("抵扣金额必须是大于 0 的数字。", false);
+                return;
+            }
+
+            if (!decimal.TryParse(txtCouponMinSpend.Text.Trim(), out var minSpend))
+            {
+                minSpend = 0;
+            }
+
+            if (!int.TryParse(txtCouponValidDays.Text.Trim(), out var validDays) || validDays <= 0)
+            {
+                validDays = 30;
+            }
+
+            var currentUser = AuthManager.GetCurrentUser();
+            var success = _contentRepository.IssueCoupon(
+                userId,
+                txtCouponTitle.Text.Trim(),
+                discountAmount,
+                minSpend,
+                validDays,
+                txtCouponSource.Text.Trim(),
+                currentUser == null ? 0 : currentUser.UserId,
+                out var message);
+
+            ShowMessage(message, success);
+            BindAll();
+        }
+
         protected void rptAllScripts_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
             if (e.CommandName != "DeleteScript")
@@ -200,6 +333,8 @@ namespace DramaMurderGraduation.Web
                 roomId,
                 sessionDateTime,
                 txtScheduleHostName.Text.Trim(),
+                int.TryParse(ddlScheduleDm.SelectedValue, out var hostUserId) ? (int?)hostUserId : null,
+                txtScheduleBriefing.Text.Trim(),
                 basePrice,
                 maxPlayers,
                 out var message);
@@ -261,7 +396,7 @@ namespace DramaMurderGraduation.Web
                 case "ScanCode":
                     return "扫码支付";
                 default:
-                    return "微信支付";
+                    return "快捷支付";
             }
         }
 
@@ -316,6 +451,136 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        public string DisplayAuditStatus(object value)
+        {
+            var status = Convert.ToString(value);
+            switch (status)
+            {
+                case "Approved":
+                    return "已通过";
+                case "Rejected":
+                    return "已驳回";
+                default:
+                    return "待审核";
+            }
+        }
+
+        public string DisplayPaymentMethod(object value)
+        {
+            switch (Convert.ToString(value))
+            {
+                case "BankCard":
+                    return "银行卡支付";
+                case "ScanCode":
+                    return "扫码支付";
+                default:
+                    return "快捷支付";
+            }
+        }
+
+        public string DisplayStoreVisitStatus(object value)
+        {
+            var status = Convert.ToString(value);
+            return string.IsNullOrWhiteSpace(status) ? "待门店联系" : status;
+        }
+
+        public string DisplayReservationStatus(object value)
+        {
+            var status = Convert.ToString(value);
+            return string.IsNullOrWhiteSpace(status) ? "待确认" : status;
+        }
+
+        public string DisplayBusinessType(object value)
+        {
+            switch (Convert.ToString(value))
+            {
+                case "StoreVisit":
+                    return "到店联系单";
+                case "Reservation":
+                    return "预约订单";
+                case "Session":
+                    return "场次排期";
+                case "AfterSale":
+                    return "售后单";
+                default:
+                    return Convert.ToString(value);
+            }
+        }
+
+        protected IHtmlString DisplayAfterSaleTimeline(object dataItem)
+        {
+            var item = dataItem as AfterSaleRequestInfo;
+            if (item == null)
+            {
+                return new HtmlString(string.Empty);
+            }
+
+            var html = new StringBuilder();
+            html.Append(BuildTimelineStep("已提交", item.CreatedAt.ToString("MM-dd HH:mm"), true));
+            html.Append(BuildTimelineStep("已受理", item.AcceptedAt.HasValue ? item.AcceptedAt.Value.ToString("MM-dd HH:mm") : "等待管理员受理", item.AcceptedAt.HasValue));
+            html.Append(BuildTimelineStep("已驳回", item.RejectedAt.HasValue ? item.RejectedAt.Value.ToString("MM-dd HH:mm") : "未驳回", item.RejectedAt.HasValue));
+            html.Append(BuildTimelineStep("已申诉", item.AppealedAt.HasValue ? item.AppealedAt.Value.ToString("MM-dd HH:mm") : "未发起申诉", item.AppealedAt.HasValue));
+            html.Append(BuildTimelineStep("已完成", item.ProcessedAt.HasValue ? item.ProcessedAt.Value.ToString("MM-dd HH:mm") : "处理中", item.ProcessedAt.HasValue));
+            return new HtmlString(html.ToString());
+        }
+
+        protected IHtmlString DisplayAfterSaleEvidence(object evidenceUrl)
+        {
+            var url = Convert.ToString(evidenceUrl);
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return new HtmlString("<p class=\"after-sale-empty\">未上传凭证</p>");
+            }
+
+            var resolvedUrl = ResolveUrl("~/" + url.TrimStart('/'));
+            var safeUrl = HttpUtility.HtmlAttributeEncode(resolvedUrl);
+            var lower = resolvedUrl.ToLowerInvariant();
+            if (lower.EndsWith(".jpg") || lower.EndsWith(".jpeg") || lower.EndsWith(".png") || lower.EndsWith(".gif") || lower.EndsWith(".webp"))
+            {
+                return new HtmlString("<a class=\"after-sale-evidence\" href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\"><img src=\"" + safeUrl + "\" alt=\"售后凭证\" /></a>");
+            }
+
+            return new HtmlString("<p class=\"after-sale-status\">售后凭证：<a href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\">查看附件</a></p>");
+        }
+
+        public string DisplayReviewTags(object value)
+        {
+            var tags = (Convert.ToString(value) ?? string.Empty)
+                .Split(new[] { '，', ',', '、', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(item => item.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return tags.Count == 0 ? "真实体验" : string.Join(" / ", tags);
+        }
+
+        public string DisplayReviewBinding(object dataItem)
+        {
+            var review = dataItem as ReviewInfo;
+            if (review == null || !review.ReservationId.HasValue)
+            {
+                return "未绑定订单";
+            }
+
+            var sessionText = review.SessionDateTime.HasValue
+                ? review.SessionDateTime.Value.ToString("MM-dd HH:mm")
+                : "时间待补充";
+            return "订单 #" + review.ReservationId.Value
+                + " / " + (string.IsNullOrWhiteSpace(review.RoomName) ? "房间待安排" : review.RoomName)
+                + " / " + sessionText
+                + " / 状态：" + (string.IsNullOrWhiteSpace(review.ReservationStatus) ? "待确认" : review.ReservationStatus);
+        }
+
+        private static string BuildTimelineStep(string title, string summary, bool active)
+        {
+            return "<span class=\"service-timeline-step" + (active ? " active" : string.Empty) + "\"><span class=\"service-timeline-dot\"></span><span class=\"service-timeline-copy\"><strong>"
+                + HttpUtility.HtmlEncode(title)
+                + "</strong><small>"
+                + HttpUtility.HtmlEncode(summary)
+                + "</small></span></span>";
+        }
+
         private void BindAll()
         {
             var pendingUsers = _accountRepository.GetPendingUsers();
@@ -331,10 +596,26 @@ namespace DramaMurderGraduation.Web
             var rooms = _contentRepository.GetRooms();
             var upcomingSessions = _contentRepository.GetUpcomingSessions(12);
             var announcements = _contentRepository.GetAnnouncements(6);
+            var approvedUsers = _accountRepository.GetApprovedUsers(200);
+            var dmUsers = _accountRepository.GetDmUsers(100);
+            var financeSummary = _accountRepository.GetExtendedFinanceAuditSummary();
+            var rechargeAuditRecords = _accountRepository.GetRechargeAuditRecords(12);
+            var adminReviews = _contentRepository.GetReviewsForAdmin(20);
+            var refundAuditRecords = _contentRepository.GetAfterSaleRequests(20)
+                .Where(item => item.RefundTransactionId.HasValue || item.RefundedAmount > 0 || string.Equals(item.Status, "退款完成", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(item => item.ProcessedAt ?? item.CreatedAt)
+                .ToList();
             var approvedScripts = allScripts
                 .Where(item => string.Equals(item.AuditStatus, "Approved", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(item => item.Name)
                 .ToList();
+            var today = DateTime.Today;
+            var adminTodoItems = BuildAdminTodoItems(
+                storeVisitRequests,
+                reservationOrders,
+                _contentRepository.GetAfterSaleRequests(30),
+                upcomingSessions,
+                today);
 
             rptPendingUsers.DataSource = pendingUsers;
             rptPendingUsers.DataBind();
@@ -350,6 +631,42 @@ namespace DramaMurderGraduation.Web
 
             rptReservationOrders.DataSource = reservationOrders;
             rptReservationOrders.DataBind();
+
+            rptAfterSaleRequests.DataSource = _contentRepository.GetAfterSaleRequests(30);
+            rptAfterSaleRequests.DataBind();
+
+            rptAdminTodoItems.DataSource = adminTodoItems;
+            rptAdminTodoItems.DataBind();
+
+            rptRecentCoupons.DataSource = _contentRepository.GetRecentCouponsForAdmin(12);
+            rptRecentCoupons.DataBind();
+
+            rptAdminWalletTransactions.DataSource = _accountRepository.GetAdminWalletTransactions(20);
+            rptAdminWalletTransactions.DataBind();
+
+            rptRechargeAuditRecords.DataSource = rechargeAuditRecords;
+            rptRechargeAuditRecords.DataBind();
+
+            rptRefundAuditRecords.DataSource = refundAuditRecords;
+            rptRefundAuditRecords.DataBind();
+
+            rptServiceMessages.DataSource = _contentRepository.GetRecentServiceMessagesForAdmin(20);
+            rptServiceMessages.DataBind();
+
+            rptAdminReviews.DataSource = adminReviews;
+            rptAdminReviews.DataBind();
+            litReviewAdminTotal.Text = adminReviews.Count.ToString();
+            litReviewAdminAverage.Text = adminReviews.Count == 0 ? "0.0" : adminReviews.Average(item => item.Rating).ToString("F1");
+            litReviewLowPendingCount.Text = adminReviews.Count(item => item.Rating <= 2 && string.IsNullOrWhiteSpace(item.AdminReply)).ToString() + " 条";
+            litReviewOrderBoundCount.Text = adminReviews.Count(item => item.ReservationId.HasValue).ToString() + " 条";
+
+            litAuditRechargeTotal.Text = financeSummary.RechargeTotal.ToString("F2");
+            litAuditBookingTotal.Text = financeSummary.BookingPaidTotal.ToString("F2");
+            litAuditRefundTotal.Text = financeSummary.RefundTotal.ToString("F2");
+            litAuditCouponTotal.Text = financeSummary.CouponDiscountTotal.ToString("F2");
+            litAuditPendingRefundTotal.Text = financeSummary.PendingRefundAmount.ToString("F2");
+            litAuditAnomalyCount.Text = financeSummary.AnomalyTransactionCount.ToString() + " 条";
+            litAuditRejectedRechargeCount.Text = financeSummary.RejectedRechargeCount.ToString() + " 笔";
 
             rptAdminReplyLogs.DataSource = _contentRepository.GetRecentAdminReplyLogs(8);
             rptAdminReplyLogs.DataBind();
@@ -369,7 +686,7 @@ namespace DramaMurderGraduation.Web
             rptAllScripts.DataSource = allScripts;
             rptAllScripts.DataBind();
 
-            BindAdminForms(approvedScripts, rooms);
+            BindAdminForms(approvedScripts, rooms, approvedUsers, dmUsers);
             BindSummary(pendingUsers, pendingRechargeRequests, pendingScripts, allStoreVisitRequests, allReservationOrders, allScripts);
         }
 
@@ -439,6 +756,58 @@ namespace DramaMurderGraduation.Web
             pnlMessage.Visible = true;
             pnlMessage.CssClass = success ? "status-message success" : "status-message error";
             litMessage.Text = message;
+        }
+
+        private static IList<AdminTodoItemInfo> BuildAdminTodoItems(
+            IList<StoreVisitRequestInfo> storeVisitRequests,
+            IList<ReservationInfo> reservationOrders,
+            IList<AfterSaleRequestInfo> afterSaleRequests,
+            IList<SessionInfo> upcomingSessions,
+            DateTime today)
+        {
+            return new List<AdminTodoItemInfo>
+            {
+                new AdminTodoItemInfo
+                {
+                    Title = "待确认预约订单",
+                    CountText = reservationOrders.Count(item => item.Status == "待确认" || item.Status == "申请改期").ToString() + " 条",
+                    Summary = "优先处理未接单和改期中的预约订单，避免玩家下单后长时间无反馈。",
+                    TargetAnchor = "#reservation-orders",
+                    Priority = "high"
+                },
+                new AdminTodoItemInfo
+                {
+                    Title = "待安排到店联系单",
+                    CountText = storeVisitRequests.Count(item => string.IsNullOrWhiteSpace(item.AssignedRoomName) || item.RequestStatus == "待门店联系").ToString() + " 条",
+                    Summary = "需要补房间、时间或特殊需求确认，安排后会直接影响门店到店履约。",
+                    TargetAnchor = "#store-requests",
+                    Priority = "high"
+                },
+                new AdminTodoItemInfo
+                {
+                    Title = "今日待核销场次",
+                    CountText = reservationOrders.Count(item => item.SessionDateTime.Date == today && !item.CheckedInAt.HasValue && item.Status != "已取消").ToString() + " 场",
+                    Summary = "今天开场但尚未核销的预约，前台可直接使用核销码完成签到。",
+                    TargetAnchor = "#finance-audit-admin",
+                    Priority = "medium"
+                },
+                new AdminTodoItemInfo
+                {
+                    Title = "待处理售后申请",
+                CountText = afterSaleRequests.Count(item => item.Status == "待处理" || item.Status == "已受理" || item.Status == "待复审").ToString() + " 条",
+                    Summary = "退款、改期和体验投诉需要尽快回复，避免影响评价和复购。",
+                    TargetAnchor = "#after-sale-admin",
+                    Priority = "high"
+                },
+                new AdminTodoItemInfo
+                {
+                    Title = "待 DM 接收主持任务",
+                    CountText = upcomingSessions.Count(item => item.SessionDateTime >= today && string.IsNullOrWhiteSpace(item.HostName) == false).ToString() + " 场",
+                    Summary = "检查场次是否已安排主持人，并同步主持备注，避免临场信息脱节。",
+                    TargetAnchor = "#room-session-admin",
+                    Priority = "medium"
+                }
+            };
         }
 
         private static string MapStoreVisitStatus(string commandName)
@@ -512,8 +881,40 @@ namespace DramaMurderGraduation.Web
             }
         }
 
-        private void BindAdminForms(IList<ScriptInfo> approvedScripts, IList<RoomInfo> rooms)
+        private void BindAdminForms(IList<ScriptInfo> approvedScripts, IList<RoomInfo> rooms, IList<UserAccountInfo> approvedUsers, IList<UserAccountInfo> dmUsers)
         {
+            ddlCouponUser.DataSource = approvedUsers
+                .Select(item => new
+                {
+                    item.Id,
+                    Text = item.DisplayName + "（" + item.Username + "）"
+                })
+                .ToList();
+            ddlCouponUser.DataTextField = "Text";
+            ddlCouponUser.DataValueField = "Id";
+            ddlCouponUser.DataBind();
+            ddlCouponUser.Items.Insert(0, new ListItem("请选择用户", string.Empty));
+
+            if (string.IsNullOrWhiteSpace(txtCouponTitle.Text))
+            {
+                txtCouponTitle.Text = "老客复购券";
+            }
+
+            if (string.IsNullOrWhiteSpace(txtCouponAmount.Text))
+            {
+                txtCouponAmount.Text = "30";
+            }
+
+            if (string.IsNullOrWhiteSpace(txtCouponMinSpend.Text))
+            {
+                txtCouponMinSpend.Text = "0";
+            }
+
+            if (string.IsNullOrWhiteSpace(txtCouponValidDays.Text))
+            {
+                txtCouponValidDays.Text = "30";
+            }
+
             ddlScheduleScript.DataSource = approvedScripts;
             ddlScheduleScript.DataTextField = "Name";
             ddlScheduleScript.DataValueField = "Id";
@@ -525,6 +926,18 @@ namespace DramaMurderGraduation.Web
             ddlScheduleRoom.DataValueField = "Id";
             ddlScheduleRoom.DataBind();
             ddlScheduleRoom.Items.Insert(0, new ListItem("请选择房间", string.Empty));
+
+            ddlScheduleDm.DataSource = dmUsers
+                .Select(item => new
+                {
+                    item.Id,
+                    Text = item.DisplayName + "（" + item.RoleCode + "）"
+                })
+                .ToList();
+            ddlScheduleDm.DataTextField = "Text";
+            ddlScheduleDm.DataValueField = "Id";
+            ddlScheduleDm.DataBind();
+            ddlScheduleDm.Items.Insert(0, new ListItem("暂不绑定具体 DM", string.Empty));
 
             txtScheduleDateTime.Text = DateTime.Now.AddDays(1).Date.AddHours(19).AddMinutes(30).ToString("yyyy-MM-dd HH:mm");
             if (string.IsNullOrWhiteSpace(txtScheduleHostName.Text))
@@ -567,6 +980,99 @@ namespace DramaMurderGraduation.Web
                 default:
                     return string.Empty;
             }
+        }
+
+        protected IHtmlString RenderAfterSaleTimeline(object dataItem)
+        {
+            var item = dataItem as AfterSaleRequestInfo;
+            if (item == null)
+            {
+                return new HtmlString(string.Empty);
+            }
+
+            var html = new StringBuilder();
+            html.Append(RenderTimelineStep("已提交", item.CreatedAt.ToString("MM-dd HH:mm"), true));
+            html.Append(RenderTimelineStep("已受理", item.AcceptedAt.HasValue ? item.AcceptedAt.Value.ToString("MM-dd HH:mm") : "等待门店受理", item.AcceptedAt.HasValue));
+            html.Append(RenderTimelineStep("已驳回", item.RejectedAt.HasValue ? item.RejectedAt.Value.ToString("MM-dd HH:mm") : "未驳回", item.RejectedAt.HasValue));
+            html.Append(RenderTimelineStep("已申诉", item.AppealedAt.HasValue ? item.AppealedAt.Value.ToString("MM-dd HH:mm") : "未发起", item.AppealedAt.HasValue));
+            html.Append(RenderTimelineStep("已完成", item.ProcessedAt.HasValue ? item.ProcessedAt.Value.ToString("MM-dd HH:mm") : "处理中", item.ProcessedAt.HasValue));
+            return new HtmlString(html.ToString());
+        }
+
+        protected IHtmlString RenderAfterSaleEvidence(object evidenceUrl)
+        {
+            var url = Convert.ToString(evidenceUrl);
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return new HtmlString("<p class=\"after-sale-empty\">未上传凭证</p>");
+            }
+
+            var resolvedUrl = ResolveUrl("~/" + url.TrimStart('/'));
+            var safeUrl = HttpUtility.HtmlAttributeEncode(resolvedUrl);
+            var lower = resolvedUrl.ToLowerInvariant();
+            if (lower.EndsWith(".jpg") || lower.EndsWith(".jpeg") || lower.EndsWith(".png") || lower.EndsWith(".gif") || lower.EndsWith(".webp"))
+            {
+                return new HtmlString("<a class=\"after-sale-evidence\" href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\"><img src=\"" + safeUrl + "\" alt=\"售后凭证\" /></a>");
+            }
+
+            return new HtmlString("<p class=\"after-sale-status\">售后凭证：<a href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\">查看附件</a></p>");
+        }
+
+        private static string RenderTimelineStep(string title, string summary, bool active)
+        {
+            return "<span class=\"service-timeline-step" + (active ? " active" : string.Empty) + "\"><span class=\"service-timeline-dot\"></span><span class=\"service-timeline-copy\"><strong>"
+                + HttpUtility.HtmlEncode(title)
+                + "</strong><small>"
+                + HttpUtility.HtmlEncode(summary)
+                + "</small></span></span>";
+        }
+
+        protected bool HasBusinessConversation(object businessType)
+        {
+            return string.Equals(Convert.ToString(businessType), "Reservation", StringComparison.OrdinalIgnoreCase);
+        }
+
+        protected string RenderAdminReviewTags(object value)
+        {
+            var tags = SplitReviewTags(Convert.ToString(value));
+            return tags.Count == 0 ? "真实体验" : string.Join(" / ", tags);
+        }
+
+        protected string GetAdminReviewBindingText(object dataItem)
+        {
+            var review = dataItem as ReviewInfo;
+            if (review == null || !review.ReservationId.HasValue)
+            {
+                return "未绑定订单";
+            }
+
+            var sessionText = review.SessionDateTime.HasValue
+                ? review.SessionDateTime.Value.ToString("MM-dd HH:mm")
+                : "时间待补充";
+            return "订单 #" + review.ReservationId.Value
+                + " / " + (string.IsNullOrWhiteSpace(review.RoomName) ? "房间待安排" : review.RoomName)
+                + " / " + sessionText
+                + " / 状态 " + (string.IsNullOrWhiteSpace(review.ReservationStatus) ? "待确认" : review.ReservationStatus);
+        }
+
+        private static List<string> SplitReviewTags(string raw)
+        {
+            return (raw ?? string.Empty)
+                .Split(new[] { '，', ',', '、', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(item => item.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        protected string GetBusinessConversationUrl(object businessType, object businessId)
+        {
+            if (!HasBusinessConversation(businessType))
+            {
+                return string.Empty;
+            }
+
+            return "OrderConversation.aspx?reservationId=" + Convert.ToString(businessId);
         }
     }
 }

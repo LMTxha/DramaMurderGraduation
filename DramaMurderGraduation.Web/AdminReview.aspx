@@ -1,473 +1,574 @@
-<%@ Page Title="管理员后台 | 剧本杀系统" Language="C#" MasterPageFile="~/Site.Master" AutoEventWireup="true" CodeBehind="AdminReview.aspx.cs" Inherits="DramaMurderGraduation.Web.AdminReviewPage" %>
+﻿<%@ Page Title="管理员后台 | 剧本杀系统" Language="C#" MasterPageFile="~/Site.Master" AutoEventWireup="true" CodeBehind="AdminReview.aspx.cs" Inherits="DramaMurderGraduation.Web.AdminReviewPage" %>
 <asp:Content ID="Content1" ContentPlaceHolderID="TitleContent" runat="server">
     管理员后台 | 剧本杀系统
 </asp:Content>
 <asp:Content ID="Content2" ContentPlaceHolderID="MainContent" runat="server">
-    <section class="inner-hero">
-        <div class="container">
-            <p class="eyebrow">Admin Console</p>
-            <h1>门店管理员后台</h1>
-            <p>这里不只处理审核，还能直接管理到店联系单、预约订单、今日排期和剧本库，是门店运营的统一入口。</p>
+    <section class="detail-hero">
+        <div class="container detail-grid">
+            <article class="detail-copy">
+                <p class="eyebrow">ADMIN CONSOLE</p>
+                <h1>门店运营后台</h1>
+                <p class="hero-subtitle">集中处理账号审核、充值审核、预约履约、售后退款、服务会话、评价处理、场次排期、公告发布和剧本管理。</p>
+                <div class="detail-tags">
+                    <span>待审账号 <asp:Literal ID="litPendingUserCountSummary" runat="server" /></span>
+                    <span>待审充值 <asp:Literal ID="litPendingRechargeCountSummary" runat="server" /></span>
+                    <span>到店联系单 <asp:Literal ID="litStoreVisitCountSummary" runat="server" /></span>
+                    <span>预约订单 <asp:Literal ID="litReservationCountSummary" runat="server" /></span>
+                </div>
+            </article>
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>今日重点</h2>
+                    <p>优先处理会直接影响履约和评价的事项，保证答辩时演示链路稳定完整。</p>
+                </div>
+                <div class="reservation-list">
+                    <asp:Repeater ID="rptAdminTodoItems" runat="server">
+                        <ItemTemplate>
+                            <a class='reservation-card todo-card <%# Eval("Priority") %>' href='<%# Eval("TargetAnchor") %>'>
+                                <span class='badge-inline <%# Eval("Priority") %>'><%# Eval("CountText") %></span>
+                                <h3><%# Eval("Title") %></h3>
+                                <p><%# Eval("Summary") %></p>
+                            </a>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </article>
         </div>
     </section>
 
     <section class="section-block">
-        <div class="container admin-layout">
-            <aside class="about-panel admin-sidebar">
+        <div class="container">
+            <asp:Panel ID="pnlMessage" runat="server" Visible="false" CssClass="status-message">
+                <asp:Literal ID="litMessage" runat="server" />
+            </asp:Panel>
+
+            <div class="wallet-summary-grid dm-summary-grid">
+                <article class="wallet-summary-card accent"><span>待审用户</span><strong><asp:Literal ID="litPendingUserCount" runat="server" /></strong><small>还未完成管理员审核的新注册用户</small></article>
+                <article class="wallet-summary-card"><span>待审充值</span><strong><asp:Literal ID="litPendingRechargeCount" runat="server" /></strong><small>需要财务确认入账的充值申请</small></article>
+                <article class="wallet-summary-card"><span>待审剧本</span><strong><asp:Literal ID="litPendingScriptCount" runat="server" /></strong><small>创作者提交后等待审核的剧本</small></article>
+                <article class="wallet-summary-card"><span>剧本总数</span><strong><asp:Literal ID="litTotalScriptCount" runat="server" /></strong><small>当前剧本库条目总数</small></article>
+                <article class="wallet-summary-card"><span>今日到店</span><strong><asp:Literal ID="litTodayStoreCount" runat="server" /></strong><small>今天计划到店的联系单</small></article>
+                <article class="wallet-summary-card"><span>今日预约</span><strong><asp:Literal ID="litTodayReservationCount" runat="server" /></strong><small>今天需要履约处理的预约订单</small></article>
+                <article class="wallet-summary-card"><span>未来场次</span><strong><asp:Literal ID="litUpcomingSessionCount" runat="server" /></strong><small>已创建但尚未开场的排期场次</small></article>
+                <article class="wallet-summary-card"><span>公告数量</span><strong><asp:Literal ID="litAnnouncementCount" runat="server" /></strong><small>当前站内公告总数</small></article>
+                <article class="wallet-summary-card"><span>已安排到店</span><strong><asp:Literal ID="litArrangedStoreCount" runat="server" /></strong><small>已经安排房间或已到店完成</small></article>
+                <article class="wallet-summary-card"><span>已确认预约</span><strong><asp:Literal ID="litConfirmedReservationCount" runat="server" /></strong><small>已确认或已到店的预约订单</small></article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-block alt" id="admin-filter">
+        <div class="container split-grid detail-split">
+            <article class="form-panel">
                 <div class="section-heading left">
-                    <h2>管理员权限</h2>
-                    <p>左侧专栏汇总后台应有的核心权限，方便门店管理员按业务流快速处理。</p>
+                    <h2>后台筛选</h2>
+                    <p>按关键词、联系单状态、订单状态和日期范围快速聚焦待处理事项。</p>
                 </div>
-
-                <div class="admin-nav-list">
-                    <a class="admin-nav-item" href="#admin-overview">
-                        <span>运营总览</span>
-                        <strong><asp:Literal ID="litTodayReservationCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#pending-users">
-                        <span>用户审核</span>
-                        <strong><asp:Literal ID="litPendingUserCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#pending-recharges">
-                        <span>充值审核</span>
-                        <strong><asp:Literal ID="litPendingRechargeCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#store-requests">
-                        <span>到店联系单</span>
-                        <strong><asp:Literal ID="litStoreVisitCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#reservation-orders">
-                        <span>预约订单</span>
-                        <strong><asp:Literal ID="litReservationCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#room-session-admin">
-                        <span>房间场次</span>
-                        <strong><asp:Literal ID="litUpcomingSessionCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#announcement-admin">
-                        <span>公告管理</span>
-                        <strong><asp:Literal ID="litAnnouncementCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#pending-scripts">
-                        <span>剧本审核</span>
-                        <strong><asp:Literal ID="litPendingScriptCount" runat="server" /></strong>
-                    </a>
-                    <a class="admin-nav-item" href="#all-scripts">
-                        <span>剧本库管理</span>
-                        <strong><asp:Literal ID="litTotalScriptCount" runat="server" /></strong>
-                    </a>
+                <div class="form-grid">
+                    <div class="field-group"><label for="<%= txtAdminKeyword.ClientID %>">关键词</label><asp:TextBox ID="txtAdminKeyword" runat="server" CssClass="input-control" placeholder="联系人 / 剧本 / 房间 / 手机号" /></div>
+                    <div class="field-group"><label for="<%= ddlStoreStatusFilter.ClientID %>">到店联系状态</label><asp:DropDownList ID="ddlStoreStatusFilter" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= ddlReservationStatusFilter.ClientID %>">预约订单状态</label><asp:DropDownList ID="ddlReservationStatusFilter" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= ddlAdminDateFilter.ClientID %>">日期范围</label><asp:DropDownList ID="ddlAdminDateFilter" runat="server" CssClass="input-control" /></div>
                 </div>
-
-                <div class="reservation-list compact-reservation-list">
-                    <article class="reservation-card">
-                        <h3>门店应有权限</h3>
-                        <p>审核注册用户与充值申请，确认预约订单，处理到店联系单，安排房间排期，审核剧本发布，维护剧本库。</p>
-                        <small>这样后台才是真正的门店管理系统，而不是单纯的展示页。</small>
-                    </article>
-                    <article class="reservation-card">
-                        <h3>今日处理重点</h3>
-                        <p>今日到店联系单 <strong><asp:Literal ID="litTodayStoreCount" runat="server" /></strong> 条，已安排排期 <strong><asp:Literal ID="litArrangedStoreCount" runat="server" /></strong> 条。</p>
-                        <small>今日预约订单 <asp:Literal ID="litConfirmedReservationCount" runat="server" /> 条已完成门店确认。</small>
-                    </article>
+                <div class="hero-actions">
+                    <asp:Button ID="btnApplyAdminFilter" runat="server" Text="应用筛选" CssClass="btn-primary" OnClick="btnApplyAdminFilter_Click" />
+                    <asp:Button ID="btnResetAdminFilter" runat="server" Text="重置条件" CssClass="btn-secondary" OnClick="btnResetAdminFilter_Click" />
                 </div>
-            </aside>
-
-            <div class="admin-main">
-                <asp:Panel ID="pnlMessage" runat="server" Visible="false" CssClass="status-message">
-                    <asp:Literal ID="litMessage" runat="server" />
-                </asp:Panel>
-
-                <div class="wallet-summary-grid admin-summary-grid" id="admin-overview">
-                    <article class="wallet-summary-card accent">
-                        <span>待审核用户</span>
-                        <strong><asp:Literal ID="litPendingUserCountSummary" runat="server" /></strong>
-                        <small>新注册用户需要门店审核后才能登录和预约</small>
-                    </article>
-                    <article class="wallet-summary-card">
-                        <span>待审核充值</span>
-                        <strong><asp:Literal ID="litPendingRechargeCountSummary" runat="server" /></strong>
-                        <small>银行卡充值需要管理员确认到账</small>
-                    </article>
-                    <article class="wallet-summary-card">
-                        <span>到店联系单</span>
-                        <strong><asp:Literal ID="litStoreVisitCountSummary" runat="server" /></strong>
-                        <small>玩家提交后由门店安排剧本、人数、时间和房间</small>
-                    </article>
-                    <article class="wallet-summary-card">
-                        <span>预约订单</span>
-                        <strong><asp:Literal ID="litReservationCountSummary" runat="server" /></strong>
-                        <small>确认预约后可直接进入后续开本排期</small>
-                    </article>
+            </article>
+            <article class="about-panel" id="finance-audit-admin">
+                <div class="section-heading left">
+                    <h2>财务审计概览</h2>
+                    <p>快速确认充值、预约收入、退款和优惠抵扣是否平衡，异常交易会单独标出。</p>
                 </div>
-
-                <div class="section-heading" id="pending-users">
-                    <h2>待审核用户</h2>
-                    <p>用户审核通过后才能登录、预约、提交剧本和进入玩家中心。</p>
+                <div class="analytics-kpi-grid">
+                    <div class="analytics-stat-card"><p>充值总额</p><strong>￥<asp:Literal ID="litAuditRechargeTotal" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>预约收入</p><strong>￥<asp:Literal ID="litAuditBookingTotal" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>退款总额</p><strong>￥<asp:Literal ID="litAuditRefundTotal" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>优惠抵扣</p><strong>￥<asp:Literal ID="litAuditCouponTotal" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>待退款金额</p><strong>￥<asp:Literal ID="litAuditPendingRefundTotal" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>异常流水</p><strong><asp:Literal ID="litAuditAnomalyCount" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>驳回充值</p><strong><asp:Literal ID="litAuditRejectedRechargeCount" runat="server" /></strong></div>
                 </div>
-                <div class="admin-list">
+            </article>
+        </div>
+    </section>
+
+    <section class="section-block">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>账号审核</h2>
+                    <p>新注册用户需要通过管理员审核后才能进入完整业务流程。</p>
+                </div>
+                <div class="reservation-list">
                     <asp:Repeater ID="rptPendingUsers" runat="server" OnItemCommand="rptPendingUsers_ItemCommand">
                         <ItemTemplate>
-                            <article class="admin-card">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("DisplayName") %>（<%# Eval("Username") %>）</h3>
-                                    <p>邮箱：<%# Eval("Email") %> / 手机：<%# Eval("Phone") %></p>
-                                    <small>注册时间：<%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></small>
-                                </div>
-                                <div class="admin-card-side">
-                                    <asp:TextBox ID="txtUserRemark" runat="server" CssClass="input-control" placeholder="填写审核意见（可选）" />
-                                    <div class="card-actions">
-                                        <asp:Button ID="btnApproveUser" runat="server" Text="通过" CssClass="btn-primary" CommandName="ApproveUser" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnRejectUser" runat="server" Text="驳回" CssClass="btn-secondary" CommandName="RejectUser" CommandArgument='<%# Eval("Id") %>' />
-                                    </div>
+                            <article class="reservation-card">
+                                <h3><%# Eval("DisplayName") %> / <%# Eval("Username") %></h3>
+                                <p>手机号：<%# Eval("Phone") %> · 角色：<%# Eval("RoleCode") %></p>
+                                <p>注册时间：<%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></p>
+                                <asp:TextBox ID="txtUserRemark" runat="server" CssClass="input-control" placeholder="审核备注" Text='<%# Eval("ReviewRemark") %>' />
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnApproveUser" runat="server" CssClass="btn-primary small" CommandName="ApproveUser" CommandArgument='<%# Eval("Id") %>'>通过</asp:LinkButton>
+                                    <asp:LinkButton ID="btnRejectUser" runat="server" CssClass="btn-secondary small" CommandName="RejectUser" CommandArgument='<%# Eval("Id") %>'>驳回</asp:LinkButton>
                                 </div>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
 
-                <div class="section-heading top-gap" id="pending-recharges">
-                    <h2>待审核充值申请</h2>
-                    <p>银行卡支付需要门店管理员确认后到账，扫码和微信支付会自动完成。</p>
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>充值审核</h2>
+                    <p>确认支付方式、付款账号和申请金额后，再决定是否入账到钱包。</p>
                 </div>
-                <div class="admin-list">
+                <div class="reservation-list">
                     <asp:Repeater ID="rptPendingRechargeRequests" runat="server" OnItemCommand="rptPendingRechargeRequests_ItemCommand">
                         <ItemTemplate>
-                            <article class="admin-card">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("DisplayName") %>（<%# Eval("Username") %>）</h3>
-                                    <p>支付方式：<%# TranslatePaymentMethod(Eval("PaymentMethod")) %> / 金额：￥<%# Eval("Amount", "{0:F2}") %></p>
-                                    <p>付款账号：<%# Eval("PaymentAccount") %></p>
-                                    <small>提交时间：<%# Eval("SubmittedAt", "{0:yyyy-MM-dd HH:mm}") %></small>
-                                </div>
-                                <div class="admin-card-side">
-                                    <asp:TextBox ID="txtRechargeRemark" runat="server" CssClass="input-control" placeholder="填写审核意见（可选）" />
-                                    <div class="card-actions">
-                                        <asp:Button ID="btnApproveRecharge" runat="server" Text="通过充值" CssClass="btn-primary" CommandName="ApproveRecharge" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnRejectRecharge" runat="server" Text="驳回充值" CssClass="btn-secondary" CommandName="RejectRecharge" CommandArgument='<%# Eval("Id") %>' />
-                                    </div>
+                            <article class="reservation-card">
+                                <h3><%# Eval("DisplayName") %> / ￥<%# Eval("Amount", "{0:F2}") %></h3>
+                                <p>方式：<%# DisplayPaymentMethod(Eval("PaymentMethod")) %> · 账号：<%# Eval("PaymentAccountMasked") %></p>
+                                <p>提交时间：<%# Eval("SubmittedAt", "{0:yyyy-MM-dd HH:mm}") %></p>
+                                <asp:TextBox ID="txtRechargeRemark" runat="server" CssClass="input-control" placeholder="审核备注" Text='<%# Eval("ReviewRemark") %>' />
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnApproveRecharge" runat="server" CssClass="btn-primary small" CommandName="ApproveRecharge" CommandArgument='<%# Eval("Id") %>'>通过充值</asp:LinkButton>
+                                    <asp:LinkButton ID="btnRejectRecharge" runat="server" CssClass="btn-secondary small" CommandName="RejectRecharge" CommandArgument='<%# Eval("Id") %>'>驳回申请</asp:LinkButton>
                                 </div>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
+        </div>
+    </section>
 
-                <div class="section-heading top-gap" id="store-requests">
-                    <h2>到店联系单处理</h2>
-                    <p>这是门店管理员最关键的权限之一。收到联系单后可以安排房间、记录备注，并更新联系状态。</p>
+    <section class="section-block alt" id="store-requests">
+        <div class="container">
+            <div class="section-heading left">
+                <h2>到店联系单</h2>
+                <p>用于安排试玩、拼车、改期到店和特殊需求沟通，可直接在后台分配房间并回复用户。</p>
+            </div>
+            <div class="reservation-list">
+                <asp:Repeater ID="rptStoreVisitRequests" runat="server" OnItemCommand="rptStoreVisitRequests_ItemCommand">
+                    <ItemTemplate>
+                        <article class="reservation-card">
+                            <span class="badge-inline soft"><%# DisplayStoreVisitStatus(Eval("RequestStatus")) %></span>
+                            <h3><%# Eval("ContactName") %> · <%# Eval("ScriptName") %></h3>
+                            <p>到店时间：<%# Eval("PreferredArriveTime", "{0:yyyy-MM-dd HH:mm}") %> · 人数：<%# Eval("TeamSize") %> · 手机：<%# Eval("PhoneMasked") %></p>
+                            <p>用户备注：<%# Eval("Note") %></p>
+                            <asp:TextBox ID="txtAssignedRoomName" runat="server" CssClass="input-control" placeholder="安排房间" Text='<%# Eval("AssignedRoomName") %>' />
+                            <asp:TextBox ID="txtStoreRemark" runat="server" CssClass="input-control" placeholder="后台备注" Text='<%# Eval("AdminRemark") %>' />
+                            <asp:TextBox ID="txtStoreReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="回复用户" Text='<%# Eval("AdminReply") %>' />
+                            <div class="hero-actions">
+                                <asp:LinkButton ID="btnArrangeStore" runat="server" CssClass="btn-primary small" CommandName="ArrangeStore" CommandArgument='<%# Eval("Id") %>'>安排排期</asp:LinkButton>
+                                <asp:LinkButton ID="btnCompleteStore" runat="server" CssClass="btn-secondary small" CommandName="CompleteStore" CommandArgument='<%# Eval("Id") %>'>登记到店完成</asp:LinkButton>
+                                <asp:LinkButton ID="btnCloseStore" runat="server" CssClass="btn-secondary small" CommandName="CloseStore" CommandArgument='<%# Eval("Id") %>'>关闭联系单</asp:LinkButton>
+                            </div>
+                        </article>
+                    </ItemTemplate>
+                </asp:Repeater>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-block" id="reservation-orders">
+        <div class="container">
+            <div class="section-heading left">
+                <h2>预约订单履约</h2>
+                <p>确认订单、登记到店、取消订单和服务会话跳转都在这里处理。</p>
+            </div>
+            <div class="reservation-list">
+                <asp:Repeater ID="rptReservationOrders" runat="server" OnItemCommand="rptReservationOrders_ItemCommand">
+                    <ItemTemplate>
+                        <article class="reservation-card">
+                            <span class="badge-inline"><%# DisplayReservationStatus(Eval("Status")) %></span>
+                            <h3>订单 #<%# Eval("Id") %> · <%# Eval("ScriptName") %></h3>
+                            <p>联系人：<%# Eval("ContactName") %> · 手机：<%# Eval("PhoneMasked") %> · 房间：<%# Eval("RoomName") %></p>
+                            <p>开场：<%# Eval("SessionDateTime", "{0:yyyy-MM-dd HH:mm}") %> · 人数：<%# Eval("PlayerCount") %> · 支付：<%# Eval("PaymentStatus") %></p>
+                            <p>核销码：<%# Eval("CheckInCode") %></p>
+                            <asp:TextBox ID="txtReservationRemark" runat="server" CssClass="input-control" placeholder="后台备注" Text='<%# Eval("AdminRemark") %>' />
+                            <asp:TextBox ID="txtReservationReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="回复用户" Text='<%# Eval("AdminReply") %>' />
+                            <div class="hero-actions">
+                                <asp:LinkButton ID="btnConfirmReservation" runat="server" CssClass="btn-primary small" CommandName="ConfirmReservation" CommandArgument='<%# Eval("Id") %>'>确认预约</asp:LinkButton>
+                                <asp:LinkButton ID="btnArriveReservation" runat="server" CssClass="btn-secondary small" CommandName="ArriveReservation" CommandArgument='<%# Eval("Id") %>'>登记到店</asp:LinkButton>
+                                <asp:LinkButton ID="btnCancelReservation" runat="server" CssClass="btn-secondary small" CommandName="CancelReservation" CommandArgument='<%# Eval("Id") %>'>取消订单</asp:LinkButton>
+                                <asp:HyperLink runat="server" CssClass="btn-secondary small" NavigateUrl='<%# "OrderDetails.aspx?reservationId=" + Eval("Id") %>' Text="订单详情" />
+                                <asp:HyperLink runat="server" CssClass="btn-secondary small" NavigateUrl='<%# "OrderConversation.aspx?reservationId=" + Eval("Id") %>' Text="订单沟通" />
+                            </div>
+                        </article>
+                    </ItemTemplate>
+                </asp:Repeater>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-block alt" id="after-sale-admin">
+        <div class="container">
+            <div class="section-heading left">
+                <h2>售后与退款</h2>
+                <p>处理退款、投诉、改期协商和二次申诉，证据、时间线和处理意见都集中展示。</p>
+            </div>
+            <div class="reservation-list">
+                <asp:Repeater ID="rptAfterSaleRequests" runat="server" OnItemCommand="rptAfterSaleRequests_ItemCommand">
+                    <ItemTemplate>
+                        <article class="reservation-card">
+                            <span class="badge-inline warning"><%# Eval("Status") %></span>
+                            <h3>售后 #<%# Eval("Id") %> · 订单 #<%# Eval("ReservationId") %></h3>
+                            <p><%# Eval("ContactName") %> · <%# Eval("ScriptName") %> / <%# Eval("RoomName") %> / <%# Eval("SessionDateTime", "{0:MM-dd HH:mm}") %></p>
+                            <p>类型：<%# Eval("RequestType") %> · 申请金额：￥<%# Eval("RequestedAmount", "{0:F2}") %> · 已退：￥<%# Eval("RefundedAmount", "{0:F2}") %></p>
+                            <p>原因：<%# Eval("Reason") %></p>
+                            <div class="service-timeline"><%# DisplayAfterSaleTimeline(Container.DataItem) %></div>
+                            <%# DisplayAfterSaleEvidence(Eval("EvidenceUrl")) %>
+                            <asp:DropDownList ID="ddlAfterSaleStatus" runat="server" CssClass="input-control">
+                                <asp:ListItem Text="已受理" Value="已受理" />
+                                <asp:ListItem Text="待复审" Value="待复审" />
+                                <asp:ListItem Text="退款完成" Value="退款完成" />
+                                <asp:ListItem Text="已驳回" Value="已驳回" />
+                                <asp:ListItem Text="已关闭" Value="已关闭" />
+                            </asp:DropDownList>
+                            <asp:TextBox ID="txtAfterSaleReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="回复用户" Text='<%# Eval("AdminReply") %>' />
+                            <asp:TextBox ID="txtAfterSaleRejectReason" runat="server" CssClass="input-control" placeholder="驳回原因" Text='<%# Eval("RejectReason") %>' />
+                            <asp:TextBox ID="txtAfterSaleRemark" runat="server" CssClass="input-control" placeholder="内部备注" Text='<%# Eval("AdminRemark") %>' />
+                            <div class="hero-actions">
+                                <asp:LinkButton ID="btnReviewAfterSale" runat="server" CssClass="btn-primary small" CommandName="ReviewAfterSale" CommandArgument='<%# Eval("Id") %>'>提交售后处理</asp:LinkButton>
+                            </div>
+                        </article>
+                    </ItemTemplate>
+                </asp:Repeater>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-block">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>优惠券发放</h2>
+                    <p>补贴老客、活动用户和评价补偿都可以通过后台发券完成。</p>
                 </div>
-                <article class="form-panel compact-form-panel">
-                    <div class="section-heading left compact">
-                        <h2>处理筛选</h2>
-                        <p>按状态、到店日期和关键字筛选联系单与预约订单。</p>
-                    </div>
-                    <div class="form-grid">
-                        <div class="field-group">
-                            <label for="<%= txtAdminKeyword.ClientID %>">关键字</label>
-                            <asp:TextBox ID="txtAdminKeyword" runat="server" CssClass="input-control" placeholder="联系人 / 电话 / 剧本 / 房间" />
-                        </div>
-                        <div class="field-group">
-                            <label for="<%= ddlStoreStatusFilter.ClientID %>">到店联系单状态</label>
-                            <asp:DropDownList ID="ddlStoreStatusFilter" runat="server" CssClass="input-control" />
-                        </div>
-                        <div class="field-group">
-                            <label for="<%= ddlReservationStatusFilter.ClientID %>">预约订单状态</label>
-                            <asp:DropDownList ID="ddlReservationStatusFilter" runat="server" CssClass="input-control" />
-                        </div>
-                        <div class="field-group">
-                            <label for="<%= ddlAdminDateFilter.ClientID %>">日期范围</label>
-                            <asp:DropDownList ID="ddlAdminDateFilter" runat="server" CssClass="input-control" />
-                        </div>
-                    </div>
-                    <div class="hero-actions">
-                        <asp:Button ID="btnApplyAdminFilter" runat="server" Text="应用筛选" CssClass="btn-primary" OnClick="btnApplyAdminFilter_Click" />
-                        <asp:Button ID="btnResetAdminFilter" runat="server" Text="重置筛选" CssClass="btn-secondary" OnClick="btnResetAdminFilter_Click" />
-                    </div>
-                </article>
-                <div class="admin-list">
-                    <asp:Repeater ID="rptStoreVisitRequests" runat="server" OnItemCommand="rptStoreVisitRequests_ItemCommand">
+                <div class="form-grid">
+                    <div class="field-group"><label for="<%= ddlCouponUser.ClientID %>">发放用户</label><asp:DropDownList ID="ddlCouponUser" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtCouponTitle.ClientID %>">优惠券标题</label><asp:TextBox ID="txtCouponTitle" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtCouponAmount.ClientID %>">抵扣金额</label><asp:TextBox ID="txtCouponAmount" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtCouponMinSpend.ClientID %>">最低消费</label><asp:TextBox ID="txtCouponMinSpend" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtCouponValidDays.ClientID %>">有效天数</label><asp:TextBox ID="txtCouponValidDays" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtCouponSource.ClientID %>">发券来源</label><asp:TextBox ID="txtCouponSource" runat="server" CssClass="input-control" placeholder="如：复购召回 / 差评安抚" /></div>
+                </div>
+                <div class="hero-actions">
+                    <asp:Button ID="btnIssueCoupon" runat="server" Text="发放优惠券" CssClass="btn-primary" OnClick="btnIssueCoupon_Click" />
+                </div>
+                <div class="reservation-list top-gap">
+                    <asp:Repeater ID="rptRecentCoupons" runat="server">
                         <ItemTemplate>
-                            <article class="admin-card">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("ScriptName") %></h3>
-                                    <p>联系人：<%# Eval("ContactName") %> / 电话：<%# Eval("Phone") %> / 人数：<%# Eval("TeamSize") %> 人</p>
-                                    <p>到店时间：<%# Eval("PreferredArriveTime", "{0:yyyy-MM-dd HH:mm}") %> / 状态：<%# TranslateStoreVisitStatus(Eval("RequestStatus")) %></p>
-                                    <p><%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("Note"))) ? "玩家没有填写额外备注。" : Eval("Note") %></p>
-                                    <small>
-                                        已安排房间：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("AssignedRoomName"))) ? "待安排" : Eval("AssignedRoomName") %>
-                                        / 处理时间：<%# Eval("ProcessedAt", "{0:yyyy-MM-dd HH:mm}") %>
-                                    </small>
-                                    <small>玩家确认：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("ConfirmStatus"))) ? "未确认" : Eval("ConfirmStatus") %> <%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("PlayerConfirmRemark"))) ? string.Empty : " / " + Eval("PlayerConfirmRemark") %></small>
-                                    <p class="meta-copy">线上回复：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("AdminReply"))) ? "尚未回复玩家" : Eval("AdminReply") %></p>
-                                </div>
-                                <div class="admin-card-side">
-                                    <asp:TextBox ID="txtAssignedRoomName" runat="server" CssClass="input-control" placeholder="填写安排房间，如：长夜 B 厅" Text='<%# Eval("AssignedRoomName") %>' />
-                                    <asp:TextBox ID="txtStoreRemark" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="填写门店处理备注" Text='<%# Eval("AdminRemark") %>' />
-                                    <asp:TextBox ID="txtStoreReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="线上回复给玩家，例如：已安排长夜 B 厅，请 19:20 到店签到。" Text='<%# Eval("AdminReply") %>' />
-                                    <div class="card-actions">
-                                        <asp:Button ID="btnArrangeStore" runat="server" Text="安排排期" CssClass="btn-primary" CommandName="ArrangeStore" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnCompleteStore" runat="server" Text="到店完成" CssClass="btn-secondary" CommandName="CompleteStore" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnCloseStore" runat="server" Text="关闭联系单" CssClass="btn-secondary" CommandName="CloseStore" CommandArgument='<%# Eval("Id") %>' />
-                                    </div>
-                                </div>
+                            <article class="reservation-card">
+                                <h3><%# Eval("Title") %> · ￥<%# Eval("DiscountAmount", "{0:F2}") %></h3>
+                                <p>用户：<%# Eval("UserDisplayName") %> · 状态：<%# Eval("Status") %></p>
+                                <p>门槛：￥<%# Eval("MinSpend", "{0:F2}") %> · 有效期至 <%# Eval("ValidUntil", "{0:yyyy-MM-dd}") %></p>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
 
-                <div class="section-heading top-gap" id="reservation-orders">
-                    <h2>预约订单管理</h2>
-                    <p>管理员可以确认预约、登记到店和取消预约，形成完整的门店订单流转。</p>
+            <article class="about-panel" id="service-message-admin">
+                <div class="section-heading left">
+                    <h2>核销与服务消息</h2>
+                    <p>支持前台输入核销码登记到店，也能统一查看用户与管理员围绕订单的连续消息。</p>
                 </div>
-                <div class="admin-list">
-                    <asp:Repeater ID="rptReservationOrders" runat="server" OnItemCommand="rptReservationOrders_ItemCommand">
+                <div class="hero-actions">
+                    <asp:TextBox ID="txtCheckInCode" runat="server" CssClass="input-control" placeholder="输入预约核销码" />
+                    <asp:Button ID="btnCheckInReservation" runat="server" Text="核销到店" CssClass="btn-primary" OnClick="btnCheckInReservation_Click" />
+                </div>
+                <div class="reservation-list top-gap">
+                    <asp:Repeater ID="rptServiceMessages" runat="server" OnItemCommand="rptServiceMessages_ItemCommand">
                         <ItemTemplate>
-                            <article class="admin-card">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("ScriptName") %> / <%# Eval("RoomName") %></h3>
-                                    <p>联系人：<%# Eval("ContactName") %> / 电话：<%# Eval("Phone") %> / 人数：<%# Eval("PlayerCount") %> 人</p>
-                                    <p>场次：<%# Eval("SessionDateTime", "{0:yyyy-MM-dd HH:mm}") %> / DM：<%# Eval("HostName") %></p>
-                                    <p>订单状态：<%# TranslateReservationStatus(Eval("Status")) %> / 支付：<%# Eval("PaymentStatus") %> / 金额：￥<%# Eval("TotalAmount", "{0:F2}") %></p>
-                                    <p><%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("Remark"))) ? "玩家没有填写预约备注。" : Eval("Remark") %></p>
-                                    <small>管理员备注：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("AdminRemark"))) ? "暂无" : Eval("AdminRemark") %></small>
-                                    <small>玩家确认：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("ConfirmStatus"))) ? "未确认" : Eval("ConfirmStatus") %> <%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("PlayerConfirmRemark"))) ? string.Empty : " / " + Eval("PlayerConfirmRemark") %></small>
-                                    <p class="meta-copy">线上回复：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("AdminReply"))) ? "尚未回复玩家" : Eval("AdminReply") %></p>
-                                </div>
-                                <div class="admin-card-side">
-                                    <asp:TextBox ID="txtReservationRemark" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="填写订单处理备注" Text='<%# Eval("AdminRemark") %>' />
-                                    <asp:TextBox ID="txtReservationReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="线上回复给玩家，例如：预约已确认，请提前 10 分钟到店。" Text='<%# Eval("AdminReply") %>' />
-                                    <div class="card-actions">
-                                        <asp:Button ID="btnConfirmReservation" runat="server" Text="确认预约" CssClass="btn-primary" CommandName="ConfirmReservation" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnArriveReservation" runat="server" Text="登记到店" CssClass="btn-secondary" CommandName="ArriveReservation" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnCancelReservation" runat="server" Text="取消预约" CssClass="btn-secondary" CommandName="CancelReservation" CommandArgument='<%# Eval("Id") %>' />
-                                    </div>
+                            <article class="reservation-card">
+                                <span class="badge-inline soft"><%# DisplayBusinessType(Eval("BusinessType")) %></span>
+                                <h3><%# Eval("SenderName") %> · <%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></h3>
+                                <p>角色：<%# Eval("SenderRole") %> · 业务编号：<%# Eval("BusinessId") %></p>
+                                <p><%# Eval("Content") %></p>
+                                <asp:TextBox ID="txtServiceReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="回复本条服务会话" />
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnReplyService" runat="server" CssClass="btn-primary small" CommandName="ReplyService" CommandArgument='<%# Eval("BusinessType") + "|" + Eval("BusinessId") %>'>发送回复</asp:LinkButton>
+                                    <asp:HyperLink runat="server" CssClass="btn-secondary small" NavigateUrl='<%# GetBusinessConversationUrl(Eval("BusinessType"), Eval("BusinessId")) %>' Visible='<%# HasBusinessConversation(Eval("BusinessType")) %>' Text="查看订单会话" />
                                 </div>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
+        </div>
+    </section>
 
-                <div class="section-heading top-gap" id="admin-flow-logs">
-                    <h2>回复历史与操作日志</h2>
-                    <p>这里保存管理员回复、玩家确认和改期申请等真实业务流转记录。</p>
+    <section class="section-block alt">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>评价管理</h2>
+                    <p>查看订单绑定评价、处理低分反馈，并决定是否精选展示或隐藏。</p>
                 </div>
-                <div class="split-grid detail-split">
-                    <article class="about-panel">
-                        <div class="section-heading left compact">
-                            <h2>最近线上回复</h2>
-                            <p>每次给玩家的线上回复都会写入日志，不会只覆盖最新文本。</p>
-                        </div>
-                        <div class="reservation-list">
-                            <asp:Repeater ID="rptAdminReplyLogs" runat="server">
-                                <ItemTemplate>
-                                    <article class="reservation-card">
-                                        <h3><%# TranslateBusinessType(Eval("BusinessType")) %> #<%# Eval("BusinessId") %></h3>
-                                        <p><%# Eval("ReplyContent") %></p>
-                                        <small><%# Eval("AdminName") %> / <%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></small>
-                                    </article>
-                                </ItemTemplate>
-                            </asp:Repeater>
-                        </div>
-                    </article>
-
-                    <article class="about-panel">
-                        <div class="section-heading left compact">
-                            <h2>最近业务操作</h2>
-                            <p>安排排期、确认预约、玩家确认、申请改期都会在这里留下记录。</p>
-                        </div>
-                        <div class="reservation-list">
-                            <asp:Repeater ID="rptBusinessActionLogs" runat="server">
-                                <ItemTemplate>
-                                    <article class="reservation-card">
-                                        <h3><%# Eval("ActionTitle") %></h3>
-                                        <p><%# TranslateBusinessType(Eval("BusinessType")) %> #<%# Eval("BusinessId") %> / <%# Eval("ActionType") %></p>
-                                        <p><%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("ActionContent"))) ? "无补充说明" : Eval("ActionContent") %></p>
-                                        <small><%# Eval("OperatorName") %> / <%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></small>
-                                    </article>
-                                </ItemTemplate>
-                            </asp:Repeater>
-                        </div>
-                    </article>
+                <div class="analytics-kpi-grid">
+                    <div class="analytics-stat-card"><p>评价总数</p><strong><asp:Literal ID="litReviewAdminTotal" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>平均评分</p><strong><asp:Literal ID="litReviewAdminAverage" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>低分待处理</p><strong><asp:Literal ID="litReviewLowPendingCount" runat="server" /></strong></div>
+                    <div class="analytics-stat-card"><p>已绑订单</p><strong><asp:Literal ID="litReviewOrderBoundCount" runat="server" /></strong></div>
                 </div>
-
-                <div class="section-heading top-gap" id="room-session-admin">
-                    <h2>房间与场次管理</h2>
-                    <p>管理员可以直接设置房间营业状态、补充新场次，并实时查看接下来可预约的门店排期。</p>
+                <div class="reservation-list top-gap">
+                    <asp:Repeater ID="rptAdminReviews" runat="server" OnItemCommand="rptAdminReviews_ItemCommand">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3><%# Eval("ScriptName") %> · <%# Eval("ReviewerName") %> · <span class="rating-badge"><%# Eval("Rating") %>.0</span></h3>
+                                <p><%# Eval("Content") %></p>
+                                <p class="meta-copy">标签：<%# DisplayReviewTags(Eval("HighlightTag")) %></p>
+                                <p class="meta-copy"><%# DisplayReviewBinding(Container.DataItem) %></p>
+                                <label><asp:CheckBox ID="chkReviewFeatured" runat="server" Checked='<%# Eval("IsFeatured") %>' /> 精选展示</label>
+                                <label><asp:CheckBox ID="chkReviewHidden" runat="server" Checked='<%# Eval("IsHidden") %>' /> 隐藏评价</label>
+                                <asp:TextBox ID="txtReviewReply" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="管理员回复评价" Text='<%# Eval("AdminReply") %>' />
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnModerateReview" runat="server" CssClass="btn-primary small" CommandName="ModerateReview" CommandArgument='<%# Eval("Id") %>'>保存评价处理</asp:LinkButton>
+                                </div>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
                 </div>
-                <div class="split-grid detail-split">
-                    <article class="form-panel">
-                        <div class="section-heading left compact">
-                            <h2>新增预约场次</h2>
-                            <p>选择已审核通过的剧本和房间，排入新的开放预约场次。</p>
-                        </div>
-                        <div class="form-grid">
-                            <div class="field-group">
-                                <label for="<%= ddlScheduleScript.ClientID %>">剧本</label>
-                                <asp:DropDownList ID="ddlScheduleScript" runat="server" CssClass="input-control" />
-                            </div>
-                            <div class="field-group">
-                                <label for="<%= ddlScheduleRoom.ClientID %>">房间</label>
-                                <asp:DropDownList ID="ddlScheduleRoom" runat="server" CssClass="input-control" />
-                            </div>
-                            <div class="field-group">
-                                <label for="<%= txtScheduleDateTime.ClientID %>">开场时间</label>
-                                <asp:TextBox ID="txtScheduleDateTime" runat="server" CssClass="input-control" placeholder="例如：2026-04-18 19:30" />
-                            </div>
-                            <div class="field-group">
-                                <label for="<%= txtScheduleHostName.ClientID %>">主持 DM</label>
-                                <asp:TextBox ID="txtScheduleHostName" runat="server" CssClass="input-control" placeholder="填写 DM 名称" />
-                            </div>
-                            <div class="field-group">
-                                <label for="<%= txtSchedulePrice.ClientID %>">人均价格</label>
-                                <asp:TextBox ID="txtSchedulePrice" runat="server" CssClass="input-control" Text="228" />
-                            </div>
-                            <div class="field-group">
-                                <label for="<%= txtScheduleMaxPlayers.ClientID %>">最大人数</label>
-                                <asp:TextBox ID="txtScheduleMaxPlayers" runat="server" CssClass="input-control" Text="6" />
-                            </div>
-                        </div>
-                        <asp:Button ID="btnCreateSession" runat="server" Text="创建新场次" CssClass="btn-primary wide-button" OnClick="btnCreateSession_Click" />
-                    </article>
+            </article>
 
-                    <article class="about-panel">
-                        <div class="section-heading left compact">
-                            <h2>房间状态管理</h2>
-                            <p>门店可以随时切换房间营业状态，避免玩家继续预约维护中的房间。</p>
-                        </div>
-                        <div class="admin-list">
-                            <asp:Repeater ID="rptAdminRooms" runat="server" OnItemCommand="rptAdminRooms_ItemCommand">
-                                <ItemTemplate>
-                                    <article class="admin-card">
-                                        <div class="admin-card-main">
-                                            <h3><%# Eval("Name") %></h3>
-                                            <p>主题：<%# Eval("Theme") %> / 容量：<%# Eval("Capacity") %> 人</p>
-                                            <p>房间状态：<strong><%# Eval("Status") %></strong> / 待开场次：<%# Eval("UpcomingSessionCount") %></p>
-                                            <small><%# Eval("Description") %></small>
-                                        </div>
-                                        <div class="admin-card-side">
-                                            <div class="card-actions">
-                                                <asp:Button ID="btnEnableRoom" runat="server" Text="启用中" CssClass="btn-primary" CommandName="EnableRoom" CommandArgument='<%# Eval("Id") %>' />
-                                                <asp:Button ID="btnMaintainRoom" runat="server" Text="维护中" CssClass="btn-secondary" CommandName="MaintainRoom" CommandArgument='<%# Eval("Id") %>' />
-                                                <asp:Button ID="btnPauseRoom" runat="server" Text="暂停接待" CssClass="btn-secondary" CommandName="PauseRoom" CommandArgument='<%# Eval("Id") %>' />
-                                            </div>
-                                        </div>
-                                    </article>
-                                </ItemTemplate>
-                            </asp:Repeater>
-                        </div>
-                    </article>
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>回复日志与业务动作</h2>
+                    <p>记录管理员对外回复和关键业务操作，方便答辩时展示后台痕迹链路。</p>
                 </div>
+                <div class="reservation-list">
+                    <asp:Repeater ID="rptAdminReplyLogs" runat="server">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3><%# Eval("AdminName") %> · <%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></h3>
+                                <p>业务：<%# DisplayBusinessType(Eval("BusinessType")) %> #<%# Eval("BusinessId") %></p>
+                                <p><%# Eval("ReplyContent") %></p>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                    <asp:Repeater ID="rptBusinessActionLogs" runat="server">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3><%# Eval("ActionTitle") %> · <%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %></h3>
+                                <p>操作人：<%# Eval("OperatorName") %> · 业务：<%# DisplayBusinessType(Eval("BusinessType")) %> #<%# Eval("BusinessId") %></p>
+                                <p><%# Eval("ActionContent") %></p>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </article>
+        </div>
+    </section>
 
-                <div class="admin-list top-gap">
+    <section class="section-block" id="room-session-admin">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>创建排期与 DM 协同</h2>
+                    <p>管理员可以直接创建场次、指定房间和主持人，并同步主持备注。</p>
+                </div>
+                <div class="form-grid">
+                    <div class="field-group"><label for="<%= ddlScheduleScript.ClientID %>">剧本</label><asp:DropDownList ID="ddlScheduleScript" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= ddlScheduleRoom.ClientID %>">房间</label><asp:DropDownList ID="ddlScheduleRoom" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtScheduleDateTime.ClientID %>">开场时间</label><asp:TextBox ID="txtScheduleDateTime" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtScheduleHostName.ClientID %>">主持名称</label><asp:TextBox ID="txtScheduleHostName" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= ddlScheduleDm.ClientID %>">绑定 DM</label><asp:DropDownList ID="ddlScheduleDm" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtSchedulePrice.ClientID %>">人均价格</label><asp:TextBox ID="txtSchedulePrice" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group"><label for="<%= txtScheduleMaxPlayers.ClientID %>">最大人数</label><asp:TextBox ID="txtScheduleMaxPlayers" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group full"><label for="<%= txtScheduleBriefing.ClientID %>">主持备注</label><asp:TextBox ID="txtScheduleBriefing" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" /></div>
+                </div>
+                <div class="hero-actions">
+                    <asp:Button ID="btnCreateSession" runat="server" Text="创建排期场次" CssClass="btn-primary" OnClick="btnCreateSession_Click" />
+                </div>
+            </article>
+
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>房间状态</h2>
+                    <p>可快速调整房间是否启用、维护或暂停接待，并同步展示未来场次数。</p>
+                </div>
+                <div class="reservation-list">
+                    <asp:Repeater ID="rptAdminRooms" runat="server" OnItemCommand="rptAdminRooms_ItemCommand">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3><%# Eval("Name") %></h3>
+                                <p>主题：<%# Eval("Theme") %> · 容量：<%# Eval("Capacity") %> · 状态：<%# Eval("Status") %></p>
+                                <p><%# Eval("Description") %></p>
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnEnableRoom" runat="server" CssClass="btn-primary small" CommandName="EnableRoom" CommandArgument='<%# Eval("Id") %>'>启用</asp:LinkButton>
+                                    <asp:LinkButton ID="btnMaintainRoom" runat="server" CssClass="btn-secondary small" CommandName="MaintainRoom" CommandArgument='<%# Eval("Id") %>'>维护</asp:LinkButton>
+                                    <asp:LinkButton ID="btnPauseRoom" runat="server" CssClass="btn-secondary small" CommandName="PauseRoom" CommandArgument='<%# Eval("Id") %>'>暂停接待</asp:LinkButton>
+                                </div>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="section-block alt">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>已创建场次</h2>
+                    <p>核对剧本、房间、主持人和剩余席位，避免排期信息和履约信息脱节。</p>
+                </div>
+                <div class="reservation-list">
                     <asp:Repeater ID="rptAdminSessions" runat="server">
                         <ItemTemplate>
-                            <article class="admin-card">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("ScriptName") %> / <%# Eval("RoomName") %></h3>
-                                    <p>开场时间：<%# Eval("SessionDateTime", "{0:yyyy-MM-dd HH:mm}") %> / DM：<%# Eval("HostName") %></p>
-                                    <p>状态：<%# Eval("Status") %> / 已预订：<%# Eval("ReservedPlayers") %> / 剩余：<%# Eval("RemainingSeats") %></p>
-                                    <small>人均 ￥<%# Eval("BasePrice", "{0:F2}") %> / 最大人数 <%# Eval("MaxPlayers") %></small>
-                                </div>
+                            <article class="reservation-card">
+                                <h3><%# Eval("ScriptName") %> / <%# Eval("RoomName") %></h3>
+                                <p>开场：<%# Eval("SessionDateTime", "{0:yyyy-MM-dd HH:mm}") %> · 主持：<%# Eval("HostName") %></p>
+                                <p>价格：￥<%# Eval("BasePrice", "{0:F2}") %> · 人数 <%# Eval("ReservedPlayers") %>/<%# Eval("MaxPlayers") %> · 状态：<%# Eval("Status") %></p>
+                                <p class="meta-copy">主持备注：<%# Eval("HostBriefing") %></p>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
 
-                <div class="section-heading top-gap" id="announcement-admin">
-                    <h2>公告管理</h2>
-                    <p>管理员可以发布首页公告，重要公告会优先展示在前台首页与数据看板区域。</p>
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>公告发布</h2>
+                    <p>用于预约变更、节假日排期、活动上新和答辩时展示站内通知能力。</p>
                 </div>
-                <div class="split-grid detail-split">
-                    <article class="form-panel">
-                        <div class="section-heading left compact">
-                            <h2>发布门店公告</h2>
-                            <p>公告将直接从数据库读取并展示，不是写死在页面上的静态文案。</p>
-                        </div>
-                        <div class="form-grid single-form">
-                            <div class="field-group">
-                                <label for="<%= txtAnnouncementTitle.ClientID %>">公告标题</label>
-                                <asp:TextBox ID="txtAnnouncementTitle" runat="server" CssClass="input-control" />
-                            </div>
-                            <div class="field-group">
-                                <label for="<%= txtAnnouncementSummary.ClientID %>">公告内容</label>
-                                <asp:TextBox ID="txtAnnouncementSummary" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="4" />
-                            </div>
-                            <div class="field-group">
-                                <label class="inline-note">
-                                    <asp:CheckBox ID="chkAnnouncementImportant" runat="server" />
-                                    设为重要公告
-                                </label>
-                            </div>
-                        </div>
-                        <asp:Button ID="btnPublishAnnouncement" runat="server" Text="发布公告" CssClass="btn-primary wide-button" OnClick="btnPublishAnnouncement_Click" />
-                    </article>
+                <div class="form-grid">
+                    <div class="field-group"><label for="<%= txtAnnouncementTitle.ClientID %>">公告标题</label><asp:TextBox ID="txtAnnouncementTitle" runat="server" CssClass="input-control" /></div>
+                    <div class="field-group full"><label for="<%= txtAnnouncementSummary.ClientID %>">公告摘要</label><asp:TextBox ID="txtAnnouncementSummary" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" /></div>
+                    <div class="field-group"><label><asp:CheckBox ID="chkAnnouncementImportant" runat="server" /> 设为重要公告</label></div>
+                </div>
+                <div class="hero-actions">
+                    <asp:Button ID="btnPublishAnnouncement" runat="server" Text="发布公告" CssClass="btn-primary" OnClick="btnPublishAnnouncement_Click" />
+                </div>
+                <div class="reservation-list top-gap">
+                    <asp:Repeater ID="rptAdminAnnouncements" runat="server">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <span class='badge-inline <%# Convert.ToBoolean(Eval("IsImportant")) ? "warning" : "soft" %>'><%# Convert.ToBoolean(Eval("IsImportant")) ? "重要" : "普通" %></span>
+                                <h3><%# Eval("Title") %></h3>
+                                <p><%# Eval("Summary") %></p>
+                                <small><%# Eval("PublishDate", "{0:yyyy-MM-dd HH:mm}") %></small>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </article>
+        </div>
+    </section>
 
-                    <article class="about-panel">
-                        <div class="section-heading left compact">
-                            <h2>最近公告</h2>
-                            <p>这里展示当前数据库中的最新公告，方便管理员确认前台会看到什么内容。</p>
-                        </div>
-                        <div class="reservation-list">
-                            <asp:Repeater ID="rptAdminAnnouncements" runat="server">
-                                <ItemTemplate>
-                                    <article class="reservation-card">
-                                        <h3><%# Eval("Title") %></h3>
-                                        <p><%# Eval("Summary") %></p>
-                                        <small><%# Eval("PublishDate", "{0:yyyy-MM-dd}") %> <%# Convert.ToBoolean(Eval("IsImportant")) ? " / 重要公告" : string.Empty %></small>
-                                    </article>
-                                </ItemTemplate>
-                            </asp:Repeater>
-                        </div>
-                    </article>
+    <section class="section-block">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>剧本审核</h2>
+                    <p>处理创作者提交的剧本，确认后进入剧本库，驳回时保留审核意见。</p>
                 </div>
-
-                <div class="section-heading top-gap" id="pending-scripts">
-                    <h2>待审核剧本</h2>
-                    <p>审核通过后，剧本会自动进入前台剧本库，供玩家浏览、预约和评价。</p>
-                </div>
-                <div class="admin-list">
+                <div class="reservation-list">
                     <asp:Repeater ID="rptPendingScripts" runat="server" OnItemCommand="rptPendingScripts_ItemCommand">
                         <ItemTemplate>
-                            <article class="admin-card vertical">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("Name") %></h3>
-                                    <p><%# Eval("GenreName") %> / <%# Eval("Difficulty") %> / 投稿人：<%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("CreatorDisplayName"))) ? "系统种子数据" : Eval("CreatorDisplayName") %></p>
-                                    <p><%# Eval("Slogan") %></p>
-                                    <p><%# Eval("StoryBackground") %></p>
-                                    <small>提交时间：<%# Eval("SubmittedAt", "{0:yyyy-MM-dd HH:mm}") %></small>
-                                </div>
-                                <div class="admin-card-side">
-                                    <asp:TextBox ID="txtScriptRemark" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="填写审核意见" />
-                                    <div class="card-actions">
-                                        <asp:Button ID="btnApproveScript" runat="server" Text="通过剧本" CssClass="btn-primary" CommandName="ApproveScript" CommandArgument='<%# Eval("Id") %>' />
-                                        <asp:Button ID="btnRejectScript" runat="server" Text="驳回剧本" CssClass="btn-secondary" CommandName="RejectScript" CommandArgument='<%# Eval("Id") %>' />
-                                    </div>
+                            <article class="reservation-card">
+                                <h3><%# Eval("Name") %></h3>
+                                <p>作者：<%# Eval("CreatorDisplayName") %> · 类型：<%# Eval("GenreName") %> · 时长：<%# Eval("DurationMinutes") %> 分钟</p>
+                                <p><%# Eval("Slogan") %></p>
+                                <asp:TextBox ID="txtScriptRemark" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="3" placeholder="审核意见" Text='<%# Eval("AuditComment") %>' />
+                                <div class="hero-actions">
+                                    <asp:LinkButton ID="btnApproveScript" runat="server" CssClass="btn-primary small" CommandName="ApproveScript" CommandArgument='<%# Eval("Id") %>'>通过剧本</asp:LinkButton>
+                                    <asp:LinkButton ID="btnRejectScript" runat="server" CssClass="btn-secondary small" CommandName="RejectScript" CommandArgument='<%# Eval("Id") %>'>驳回剧本</asp:LinkButton>
                                 </div>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
 
-                <div class="section-heading top-gap" id="all-scripts">
-                    <h2>全部剧本管理</h2>
-                    <p>删除剧本时会一并删除角色、评价、场次和预约记录，属于管理员级别权限，请谨慎操作。</p>
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>剧本总览</h2>
+                    <p>当前所有剧本的状态、评分、排期数和审核结果，可直接做下架和整理。</p>
                 </div>
-                <div class="admin-list">
+                <div class="reservation-list">
                     <asp:Repeater ID="rptAllScripts" runat="server" OnItemCommand="rptAllScripts_ItemCommand">
                         <ItemTemplate>
-                            <article class="admin-card">
-                                <div class="admin-card-main">
-                                    <h3><%# Eval("Name") %></h3>
-                                    <p><%# Eval("GenreName") %> / <%# Eval("Difficulty") %> / <%# Eval("PlayerMin") %>-<%# Eval("PlayerMax") %> 人</p>
-                                    <p>审核状态：<%# TranslateAuditStatus(Eval("AuditStatus")) %> / 评分：<%# Eval("AverageRating", "{0:F1}") %> / 场次：<%# Eval("UpcomingSessionCount") %></p>
-                                    <small>作者：<%# Eval("AuthorName") %> / 剧本 ID：<%# Eval("Id") %></small>
-                                </div>
-                                <div class="admin-card-side">
-                                    <asp:Button ID="btnDeleteScript" runat="server" Text="删除剧本" CssClass="btn-secondary" CommandName="DeleteScript" CommandArgument='<%# Eval("Id") %>' OnClientClick="return confirm('删除后将同步删除该剧本的角色、评价、场次和预约记录，确定继续吗？');" />
+                            <article class="reservation-card">
+                                <h3><%# Eval("Name") %></h3>
+                                <p>状态：<%# Eval("Status") %> · 审核：<%# DisplayAuditStatus(Eval("AuditStatus")) %> · 评分：<%# Eval("AverageRating", "{0:F1}") %></p>
+                                <p>排期：<%# Eval("UpcomingSessionCount") %> 场 · 评论：<%# Eval("ReviewCount") %> 条</p>
+                                <div class="hero-actions">
+                                    <asp:HyperLink runat="server" CssClass="btn-secondary small" NavigateUrl='<%# "ScriptDetails.aspx?id=" + Eval("Id") %>' Text="查看详情" />
+                                    <asp:LinkButton ID="btnDeleteScript" runat="server" CssClass="btn-secondary small" CommandName="DeleteScript" CommandArgument='<%# Eval("Id") %>' OnClientClick="return confirm('确定删除这个剧本吗？');">删除剧本</asp:LinkButton>
                                 </div>
                             </article>
                         </ItemTemplate>
                     </asp:Repeater>
                 </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="section-block alt">
+        <div class="container split-grid detail-split">
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>充值审核流水</h2>
+                    <p>展示最近审核过的充值记录，便于核对是否都已经入账。</p>
+                </div>
+                <div class="reservation-list">
+                    <asp:Repeater ID="rptRechargeAuditRecords" runat="server">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3><%# Eval("DisplayName") %> · ￥<%# Eval("Amount", "{0:F2}") %></h3>
+                                <p>状态：<%# DisplayAuditStatus(Eval("RequestStatus")) %> · 方式：<%# DisplayPaymentMethod(Eval("PaymentMethod")) %></p>
+                                <p>审核人：<%# Eval("ReviewedByName") %> · 时间：<%# Eval("ReviewedAt", "{0:yyyy-MM-dd HH:mm}") %></p>
+                                <p><%# Eval("ReviewRemark") %></p>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </article>
+
+            <article class="about-panel">
+                <div class="section-heading left">
+                    <h2>退款审核流水</h2>
+                    <p>核对最近的退款处理结果、驳回原因和最终到账金额。</p>
+                </div>
+                <div class="reservation-list">
+                    <asp:Repeater ID="rptRefundAuditRecords" runat="server">
+                        <ItemTemplate>
+                            <article class="reservation-card">
+                                <h3>售后 #<%# Eval("Id") %> · <%# Eval("RequestType") %></h3>
+                                <p>订单 #<%# Eval("ReservationId") %> · 状态：<%# Eval("Status") %></p>
+                                <p>申请金额：￥<%# Eval("RequestedAmount", "{0:F2}") %> · 已退：￥<%# Eval("RefundedAmount", "{0:F2}") %></p>
+                                <p><%# string.IsNullOrWhiteSpace(Convert.ToString(Eval("RejectReason"))) ? Eval("AdminReply") : Eval("RejectReason") %></p>
+                            </article>
+                        </ItemTemplate>
+                    </asp:Repeater>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="section-block">
+        <div class="container">
+            <div class="section-heading left">
+                <h2>钱包流水审计</h2>
+                <p>展示最近的余额变更，异常流水会带出审计备注，方便答辩时说明财务闭环。</p>
+            </div>
+            <div class="reservation-list">
+                <asp:Repeater ID="rptAdminWalletTransactions" runat="server">
+                    <ItemTemplate>
+                        <article class="reservation-card">
+                            <span class='badge-inline <%# Convert.ToBoolean(Eval("IsAnomaly")) ? "warning" : "soft" %>'><%# Convert.ToBoolean(Eval("IsAnomaly")) ? "异常" : "正常" %></span>
+                            <h3><%# Eval("UserDisplayName") %> · <%# Eval("TransactionType") %></h3>
+                            <p>金额：￥<%# Eval("Amount", "{0:F2}") %> · 余额：￥<%# Eval("BalanceAfter", "{0:F2}") %></p>
+                            <p><%# Eval("Summary") %></p>
+                            <small><%# Eval("CreatedAt", "{0:yyyy-MM-dd HH:mm}") %> · <%# Eval("AuditNote") %></small>
+                        </article>
+                    </ItemTemplate>
+                </asp:Repeater>
             </div>
         </div>
     </section>

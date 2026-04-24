@@ -193,11 +193,35 @@
     <Compile Include="Login.aspx.designer.cs">
       <DependentUpon>Login.aspx</DependentUpon>
     </Compile>
+    <Compile Include="NotificationCenter.aspx.cs">
+      <DependentUpon>NotificationCenter.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="NotificationCenter.aspx.designer.cs">
+      <DependentUpon>NotificationCenter.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="OrderConversation.aspx.cs">
+      <DependentUpon>OrderConversation.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="OrderConversation.aspx.designer.cs">
+      <DependentUpon>OrderConversation.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="OrderDetails.aspx.cs">
+      <DependentUpon>OrderDetails.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="OrderDetails.aspx.designer.cs">
+      <DependentUpon>OrderDetails.aspx</DependentUpon>
+    </Compile>
     <Compile Include="Models\AnnouncementInfo.cs" />
     <Compile Include="Models\AdminReplyLogInfo.cs" />
+    <Compile Include="Models\AdminTodoItemInfo.cs" />
+    <Compile Include="Models\AfterSaleRequestInfo.cs" />
     <Compile Include="Models\BookingCreateRequest.cs" />
     <Compile Include="Models\BusinessActionLogInfo.cs" />
     <Compile Include="Models\BlockedUserInfo.cs" />
+    <Compile Include="Models\CouponInfo.cs" />
     <Compile Include="Models\AchievementInfo.cs" />
     <Compile Include="Models\AnalyticsMetricInfo.cs" />
     <Compile Include="Models\ChallengeInfo.cs" />
@@ -209,6 +233,7 @@
     <Compile Include="Models\DownloadOptionInfo.cs" />
     <Compile Include="Models\DmSessionInfo.cs" />
     <Compile Include="Models\EconomyInsightInfo.cs" />
+    <Compile Include="Models\FinanceAuditSummaryInfo.cs" />
     <Compile Include="Models\FriendChatMessageInfo.cs" />
     <Compile Include="Models\FriendChatSummaryInfo.cs" />
     <Compile Include="Models\FriendInfo.cs" />
@@ -250,6 +275,7 @@
     <Compile Include="Models\ScriptSubmissionRequest.cs" />
     <Compile Include="Models\ScriptInfo.cs" />
     <Compile Include="Models\SessionInfo.cs" />
+    <Compile Include="Models\ServiceMessageInfo.cs" />
     <Compile Include="Models\ShowcaseEntryInfo.cs" />
     <Compile Include="Models\ShowcasePageInfo.cs" />
     <Compile Include="Models\ShowcaseSectionInfo.cs" />
@@ -260,6 +286,7 @@
     <Compile Include="Models\SpectatorModeInfo.cs" />
     <Compile Include="Models\SpectatorRoomInfo.cs" />
     <Compile Include="Models\UserAccountInfo.cs" />
+    <Compile Include="Models\UserNotificationInfo.cs" />
     <Compile Include="Models\UserDesktopSettingsInfo.cs" />
     <Compile Include="Models\UserSettingsInfo.cs" />
     <Compile Include="Models\UserRegistrationRequest.cs" />
@@ -370,6 +397,9 @@
     <Content Include="GroupChat.aspx" />
     <Content Include="Global.asax" />
     <Content Include="Login.aspx" />
+    <Content Include="NotificationCenter.aspx" />
+    <Content Include="OrderConversation.aspx" />
+    <Content Include="OrderDetails.aspx" />
     <Content Include="PlayerHub.aspx" />
     <Content Include="Register.aspx" />
     <Content Include="Reviews.aspx" />
