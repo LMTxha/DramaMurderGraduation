@@ -27,6 +27,7 @@
                     <div class="hero-actions">
                         <asp:HyperLink ID="lnkLobby" runat="server" CssClass="btn-primary" Text="进入候场大厅" />
                         <asp:HyperLink ID="lnkConversation" runat="server" CssClass="btn-secondary" Text="订单沟通页" />
+                        <asp:HyperLink ID="lnkCheckInPass" runat="server" CssClass="btn-secondary" Text="核销通行证" />
                         <a class="btn-secondary" href="PlayerHub.aspx?tab=orders">返回订单列表</a>
                         <a class="btn-secondary" href="Reviews.aspx">查看点评</a>
                     </div>
@@ -46,6 +47,9 @@
                         <div class="lobby-summary-item"><span>优惠抵扣</span><strong><asp:Literal ID="litDiscountSummary" runat="server" /></strong></div>
                         <div class="lobby-summary-item"><span>核销码</span><strong><asp:Literal ID="litCheckInCode" runat="server" /></strong></div>
                         <div class="lobby-summary-item"><span>门店回复</span><strong><asp:Literal ID="litAdminReply" runat="server" /></strong></div>
+                    </div>
+                    <div class="hero-actions top-gap">
+                        <asp:HyperLink ID="lnkCheckInPassInline" runat="server" CssClass="btn-secondary small" Text="打开核销通行证" />
                     </div>
                 </article>
             </div>

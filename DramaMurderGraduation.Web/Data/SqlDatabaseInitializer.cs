@@ -2,6 +2,7 @@ using System;
 using System.Configuration;
 using System.Data.SqlClient;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Web.Hosting;
 
@@ -9,6 +10,9 @@ namespace DramaMurderGraduation.Web.Data
 {
     public static class SqlDatabaseInitializer
     {
+        private const string BaseSchemaMigrationKey = "base-schema";
+        private const string IncrementalFeaturesMigrationKey = "incremental-features";
+        private const string IncrementalFeaturesMigrationVersion = "2026-04-24-v2";
         private static readonly object SyncRoot = new object();
         private static bool _initialized;
 
@@ -509,12 +513,65 @@ BEGIN
         Id INT IDENTITY(1,1) PRIMARY KEY,
         SenderUserId INT NOT NULL,
         ReceiverUserId INT NOT NULL,
+        MessageId INT NULL,
         TransferType NVARCHAR(20) NOT NULL,
         Amount DECIMAL(10,2) NOT NULL,
         Note NVARCHAR(200) NULL,
+        Status NVARCHAR(20) NOT NULL CONSTRAINT DF_FriendMoneyTransfers_Status DEFAULT(N'Claimed'),
+        ClaimedAt DATETIME NULL,
         CreatedAt DATETIME NOT NULL CONSTRAINT DF_FriendMoneyTransfers_CreatedAt DEFAULT(GETDATE())
     );
 END;
+
+IF COL_LENGTH('dbo.FriendMoneyTransfers', 'MessageId') IS NULL
+BEGIN
+    ALTER TABLE dbo.FriendMoneyTransfers
+    ADD MessageId INT NULL;
+END;
+
+IF COL_LENGTH('dbo.FriendMoneyTransfers', 'Status') IS NULL
+BEGIN
+    ALTER TABLE dbo.FriendMoneyTransfers
+    ADD Status NVARCHAR(20) NOT NULL CONSTRAINT DF_FriendMoneyTransfers_Status DEFAULT(N'Claimed');
+END;
+
+IF COL_LENGTH('dbo.FriendMoneyTransfers', 'ClaimedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.FriendMoneyTransfers
+    ADD ClaimedAt DATETIME NULL;
+END;
+
+EXEC(N'UPDATE dbo.FriendMoneyTransfers
+SET Status = N''Claimed'',
+    ClaimedAt = ISNULL(ClaimedAt, CreatedAt)
+WHERE ISNULL(Status, N'''') = N'''';');
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_FriendMoneyTransfers_MessageId' AND object_id = OBJECT_ID('dbo.FriendMoneyTransfers'))
+BEGIN
+    EXEC(N'CREATE INDEX IX_FriendMoneyTransfers_MessageId ON dbo.FriendMoneyTransfers(MessageId);');
+END;
+
+EXEC(N'
+UPDATE fmt
+SET MessageId = matched.MessageId
+FROM dbo.FriendMoneyTransfers fmt
+CROSS APPLY
+(
+    SELECT TOP 1 fm.Id AS MessageId
+    FROM dbo.FriendMessages fm
+    WHERE fm.SenderUserId = fmt.SenderUserId
+      AND fm.ReceiverUserId = fmt.ReceiverUserId
+      AND fm.MessageType = fmt.TransferType
+      AND NOT EXISTS
+      (
+          SELECT 1
+          FROM dbo.FriendMoneyTransfers used
+          WHERE used.MessageId = fm.Id
+            AND used.Id <> fmt.Id
+      )
+    ORDER BY ABS(DATEDIFF(SECOND, fm.CreatedAt, fmt.CreatedAt)), fm.Id
+) matched
+WHERE fmt.MessageId IS NULL;');
 
 IF OBJECT_ID('dbo.UserBlocks', 'U') IS NULL
 BEGIN
@@ -688,6 +745,249 @@ END;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_BusinessActionLogs_Business' AND object_id = OBJECT_ID('dbo.BusinessActionLogs'))
 BEGIN
     CREATE INDEX IX_BusinessActionLogs_Business ON dbo.BusinessActionLogs(BusinessType, BusinessId, CreatedAt DESC);
+END;
+
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AfterSaleRequests
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        ReservationId INT NOT NULL,
+        UserId INT NOT NULL,
+        RequestType NVARCHAR(30) NOT NULL,
+        Reason NVARCHAR(500) NOT NULL,
+        RequestedAmount DECIMAL(10,2) NULL,
+        Status NVARCHAR(30) NOT NULL CONSTRAINT DF_AfterSaleRequests_Status DEFAULT(N'待处理'),
+        AdminReply NVARCHAR(500) NULL,
+        AdminRemark NVARCHAR(300) NULL,
+        EvidenceUrl NVARCHAR(500) NULL,
+        RejectReason NVARCHAR(500) NULL,
+        AppealReason NVARCHAR(500) NULL,
+        AcceptedAt DATETIME NULL,
+        RejectedAt DATETIME NULL,
+        AppealedAt DATETIME NULL,
+        ProcessedByUserId INT NULL,
+        ProcessedAt DATETIME NULL,
+        RefundTransactionId INT NULL,
+        RefundedAmount DECIMAL(10,2) NULL,
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_AfterSaleRequests_CreatedAt DEFAULT(GETDATE())
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AfterSaleRequests_Reservation' AND object_id = OBJECT_ID('dbo.AfterSaleRequests'))
+BEGIN
+    CREATE INDEX IX_AfterSaleRequests_Reservation ON dbo.AfterSaleRequests(ReservationId, CreatedAt DESC);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AfterSaleRequests_Status' AND object_id = OBJECT_ID('dbo.AfterSaleRequests'))
+BEGIN
+    CREATE INDEX IX_AfterSaleRequests_Status ON dbo.AfterSaleRequests(Status, CreatedAt DESC);
+END;
+
+IF COL_LENGTH('dbo.Reservations', 'CouponId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CouponId INT NULL;
+END;
+
+IF COL_LENGTH('dbo.Reservations', 'DiscountAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD DiscountAmount DECIMAL(10,2) NOT NULL CONSTRAINT DF_Reservations_DiscountAmount DEFAULT(0);
+END;
+
+IF OBJECT_ID('dbo.UserCoupons', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserCoupons
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        Title NVARCHAR(80) NOT NULL,
+        CouponType NVARCHAR(20) NOT NULL CONSTRAINT DF_UserCoupons_CouponType DEFAULT(N'Amount'),
+        DiscountAmount DECIMAL(10,2) NOT NULL,
+        MinSpend DECIMAL(10,2) NOT NULL CONSTRAINT DF_UserCoupons_MinSpend DEFAULT(0),
+        Status NVARCHAR(20) NOT NULL CONSTRAINT DF_UserCoupons_Status DEFAULT(N'未使用'),
+        Source NVARCHAR(80) NULL,
+        IssuedByUserId INT NULL,
+        IssuedAt DATETIME NOT NULL CONSTRAINT DF_UserCoupons_IssuedAt DEFAULT(GETDATE()),
+        ValidFrom DATETIME NOT NULL CONSTRAINT DF_UserCoupons_ValidFrom DEFAULT(GETDATE()),
+        ValidUntil DATETIME NOT NULL,
+        UsedReservationId INT NULL,
+        UsedAt DATETIME NULL
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_UserCoupons_UserStatus' AND object_id = OBJECT_ID('dbo.UserCoupons'))
+BEGIN
+    CREATE INDEX IX_UserCoupons_UserStatus ON dbo.UserCoupons(UserId, Status, ValidUntil);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_UserCoupons_Recent' AND object_id = OBJECT_ID('dbo.UserCoupons'))
+BEGIN
+    CREATE INDEX IX_UserCoupons_Recent ON dbo.UserCoupons(IssuedAt DESC, Id DESC);
+END;
+
+IF COL_LENGTH('dbo.Reviews', 'UserId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD UserId INT NULL;
+END;
+
+IF COL_LENGTH('dbo.Reviews', 'ReservationId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD ReservationId INT NULL;
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Reviews_UserReservation' AND object_id = OBJECT_ID('dbo.Reviews'))
+BEGIN
+    CREATE INDEX IX_Reviews_UserReservation ON dbo.Reviews(UserId, ReservationId);
+END;
+
+IF COL_LENGTH('dbo.Reviews', 'IsFeatured') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD IsFeatured BIT NOT NULL CONSTRAINT DF_Reviews_IsFeatured DEFAULT(0);
+END;
+
+IF COL_LENGTH('dbo.Reviews', 'IsHidden') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD IsHidden BIT NOT NULL CONSTRAINT DF_Reviews_IsHidden DEFAULT(0);
+END;
+
+IF COL_LENGTH('dbo.Reviews', 'AdminReply') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD AdminReply NVARCHAR(500) NULL;
+END;
+
+IF COL_LENGTH('dbo.Reservations', 'CheckInCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CheckInCode NVARCHAR(20) NULL;
+END;
+
+IF COL_LENGTH('dbo.Reservations', 'CheckedInAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CheckedInAt DATETIME NULL;
+END;
+
+IF COL_LENGTH('dbo.Reservations', 'CheckInByUserId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CheckInByUserId INT NULL;
+END;
+
+IF EXISTS (SELECT 1 FROM dbo.Reservations WHERE CheckInCode IS NULL OR CheckInCode = N'')
+BEGIN
+    UPDATE dbo.Reservations
+    SET CheckInCode = RIGHT(N'000000' + CONVERT(NVARCHAR(20), ABS(CHECKSUM(NEWID())) % 1000000), 6)
+    WHERE CheckInCode IS NULL OR CheckInCode = N'';
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Reservations_CheckInCode' AND object_id = OBJECT_ID('dbo.Reservations'))
+BEGIN
+    CREATE INDEX IX_Reservations_CheckInCode ON dbo.Reservations(CheckInCode, Status);
+END;
+
+IF OBJECT_ID('dbo.ReservationWaitlists', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ReservationWaitlists
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        SessionId INT NOT NULL,
+        UserId INT NOT NULL,
+        ContactName NVARCHAR(50) NOT NULL,
+        Phone NVARCHAR(30) NOT NULL,
+        PlayerCount INT NOT NULL,
+        Note NVARCHAR(300) NULL,
+        Status NVARCHAR(20) NOT NULL CONSTRAINT DF_ReservationWaitlists_Status DEFAULT(N'Pending'),
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_ReservationWaitlists_CreatedAt DEFAULT(GETDATE())
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReservationWaitlists_UserStatus' AND object_id = OBJECT_ID('dbo.ReservationWaitlists'))
+BEGIN
+    CREATE INDEX IX_ReservationWaitlists_UserStatus ON dbo.ReservationWaitlists(UserId, Status, CreatedAt DESC);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReservationWaitlists_SessionStatus' AND object_id = OBJECT_ID('dbo.ReservationWaitlists'))
+BEGIN
+    CREATE INDEX IX_ReservationWaitlists_SessionStatus ON dbo.ReservationWaitlists(SessionId, Status, CreatedAt DESC);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReservationWaitlists_Sessions')
+BEGIN
+    ALTER TABLE dbo.ReservationWaitlists
+    ADD CONSTRAINT FK_ReservationWaitlists_Sessions FOREIGN KEY (SessionId) REFERENCES dbo.Sessions(Id);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReservationWaitlists_Users')
+BEGIN
+    ALTER TABLE dbo.ReservationWaitlists
+    ADD CONSTRAINT FK_ReservationWaitlists_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id);
+END;
+
+IF COL_LENGTH('dbo.Sessions', 'HostUserId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Sessions
+    ADD HostUserId INT NULL;
+END;
+
+IF COL_LENGTH('dbo.Sessions', 'HostBriefing') IS NULL
+BEGIN
+    ALTER TABLE dbo.Sessions
+    ADD HostBriefing NVARCHAR(500) NULL;
+END;
+
+IF COL_LENGTH('dbo.Sessions', 'HostAcceptedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.Sessions
+    ADD HostAcceptedAt DATETIME NULL;
+END;
+
+IF OBJECT_ID('dbo.ServiceMessages', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ServiceMessages
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        BusinessType NVARCHAR(30) NOT NULL,
+        BusinessId INT NOT NULL,
+        SenderUserId INT NOT NULL,
+        SenderRole NVARCHAR(20) NOT NULL,
+        Content NVARCHAR(800) NOT NULL,
+        IsReadByAdmin BIT NOT NULL CONSTRAINT DF_ServiceMessages_IsReadByAdmin DEFAULT(0),
+        IsReadByUser BIT NOT NULL CONSTRAINT DF_ServiceMessages_IsReadByUser DEFAULT(0),
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_ServiceMessages_CreatedAt DEFAULT(GETDATE())
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ServiceMessages_Business' AND object_id = OBJECT_ID('dbo.ServiceMessages'))
+BEGIN
+    CREATE INDEX IX_ServiceMessages_Business ON dbo.ServiceMessages(BusinessType, BusinessId, CreatedAt DESC);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ServiceMessages_UnreadAdmin' AND object_id = OBJECT_ID('dbo.ServiceMessages'))
+BEGIN
+    CREATE INDEX IX_ServiceMessages_UnreadAdmin ON dbo.ServiceMessages(IsReadByAdmin, CreatedAt DESC);
+END;
+
+IF OBJECT_ID('dbo.UserNotificationReads', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.UserNotificationReads
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        NotificationKey NVARCHAR(200) NOT NULL,
+        ReadAt DATETIME NOT NULL CONSTRAINT DF_UserNotificationReads_ReadAt DEFAULT(GETDATE())
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_UserNotificationReads_UserKey' AND object_id = OBJECT_ID('dbo.UserNotificationReads'))
+BEGIN
+    CREATE UNIQUE INDEX UX_UserNotificationReads_UserKey ON dbo.UserNotificationReads(UserId, NotificationKey);
 END;
 
 IF OBJECT_ID('dbo.DownloadOptions', 'U') IS NULL
@@ -1016,10 +1316,20 @@ END;";
             using (var command = connection.CreateCommand())
             {
                 connection.Open();
-                EnsureUserPublicCodeSchema(connection);
-                command.CommandText = sql;
-                command.ExecuteNonQuery();
-                EnsureGameLifecycleSchema(connection);
+                EnsureSchemaMigrationsTable(connection);
+                ExecuteTrackedMigration(
+                    connection,
+                    IncrementalFeaturesMigrationKey,
+                    "增量功能与兼容结构补丁",
+                    ComputeChecksum(IncrementalFeaturesMigrationVersion + "\n" + sql),
+                    () =>
+                    {
+                        EnsureUserPublicCodeSchema(connection);
+                        EnsureWorkflowCompatibilitySchema(connection);
+                        command.CommandText = sql;
+                        command.ExecuteNonQuery();
+                        EnsureGameLifecycleSchema(connection);
+                    });
             }
         }
 
@@ -1030,26 +1340,163 @@ END;";
             {
                 connection.Open();
                 var scriptContent = File.ReadAllText(scriptPath);
-                var batches = Regex.Split(scriptContent, @"^\s*GO\s*$(?:\r?\n)?", RegexOptions.Multiline | RegexOptions.IgnoreCase);
-
-                foreach (var batch in batches)
-                {
-                    var sql = batch.Trim();
-                    if (string.IsNullOrWhiteSpace(sql))
+                EnsureSchemaMigrationsTable(connection);
+                ExecuteTrackedMigration(
+                    connection,
+                    BaseSchemaMigrationKey,
+                    "基础建库脚本",
+                    ComputeChecksum(scriptContent),
+                    () =>
                     {
-                        continue;
-                    }
+                        var batches = Regex.Split(scriptContent, @"^\s*GO\s*$(?:\r?\n)?", RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-                    command.CommandText = sql;
-                    command.Parameters.Clear();
-                    command.ExecuteNonQuery();
-                }
+                        foreach (var batch in batches)
+                        {
+                            var sql = batch.Trim();
+                            if (string.IsNullOrWhiteSpace(sql))
+                            {
+                                continue;
+                            }
+
+                            command.CommandText = sql;
+                            command.Parameters.Clear();
+                            command.ExecuteNonQuery();
+                        }
+                    });
             }
         }
 
         private static string EscapeSqlLiteral(string value)
         {
             return value.Replace("'", "''");
+        }
+
+        private static void EnsureSchemaMigrationsTable(SqlConnection connection)
+        {
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.SchemaMigrations', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SchemaMigrations
+    (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        MigrationKey NVARCHAR(120) NOT NULL,
+        Description NVARCHAR(200) NULL,
+        ScriptChecksum NVARCHAR(64) NOT NULL,
+        StartedAt DATETIME NOT NULL,
+        CompletedAt DATETIME NULL,
+        Succeeded BIT NOT NULL CONSTRAINT DF_SchemaMigrations_Succeeded DEFAULT(0),
+        ErrorMessage NVARCHAR(MAX) NULL,
+        UpdatedAt DATETIME NOT NULL CONSTRAINT DF_SchemaMigrations_UpdatedAt DEFAULT(GETDATE())
+    );
+
+    CREATE UNIQUE INDEX UX_SchemaMigrations_MigrationKey ON dbo.SchemaMigrations(MigrationKey);
+END;");
+        }
+
+        private static void ExecuteTrackedMigration(SqlConnection connection, string migrationKey, string description, string scriptChecksum, Action applyMigration)
+        {
+            if (string.IsNullOrWhiteSpace(migrationKey))
+            {
+                throw new ArgumentException("Migration key is required.", nameof(migrationKey));
+            }
+
+            if (applyMigration == null)
+            {
+                throw new ArgumentNullException(nameof(applyMigration));
+            }
+
+            if (!ShouldApplyMigration(connection, migrationKey, scriptChecksum))
+            {
+                return;
+            }
+
+            MarkMigrationStarted(connection, migrationKey, description, scriptChecksum);
+            try
+            {
+                applyMigration();
+                MarkMigrationCompleted(connection, migrationKey, description, scriptChecksum, true, null);
+            }
+            catch (Exception ex)
+            {
+                MarkMigrationCompleted(connection, migrationKey, description, scriptChecksum, false, ex.ToString());
+                throw;
+            }
+        }
+
+        private static bool ShouldApplyMigration(SqlConnection connection, string migrationKey, string scriptChecksum)
+        {
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = @"
+SELECT TOP 1 Succeeded
+FROM dbo.SchemaMigrations
+WHERE MigrationKey = @MigrationKey
+  AND ScriptChecksum = @ScriptChecksum;";
+                command.Parameters.AddWithValue("@MigrationKey", migrationKey);
+                command.Parameters.AddWithValue("@ScriptChecksum", scriptChecksum ?? string.Empty);
+
+                var result = command.ExecuteScalar();
+                return result == null || result == DBNull.Value || !Convert.ToBoolean(result);
+            }
+        }
+
+        private static void MarkMigrationStarted(SqlConnection connection, string migrationKey, string description, string scriptChecksum)
+        {
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = @"
+MERGE dbo.SchemaMigrations AS target
+USING (SELECT @MigrationKey AS MigrationKey) AS source
+ON target.MigrationKey = source.MigrationKey
+WHEN MATCHED THEN
+    UPDATE SET
+        Description = @Description,
+        ScriptChecksum = @ScriptChecksum,
+        StartedAt = GETDATE(),
+        CompletedAt = NULL,
+        Succeeded = 0,
+        ErrorMessage = NULL,
+        UpdatedAt = GETDATE()
+WHEN NOT MATCHED THEN
+    INSERT(MigrationKey, Description, ScriptChecksum, StartedAt, CompletedAt, Succeeded, ErrorMessage, UpdatedAt)
+    VALUES(@MigrationKey, @Description, @ScriptChecksum, GETDATE(), NULL, 0, NULL, GETDATE());";
+                command.Parameters.AddWithValue("@MigrationKey", migrationKey);
+                command.Parameters.AddWithValue("@Description", (object)description ?? DBNull.Value);
+                command.Parameters.AddWithValue("@ScriptChecksum", scriptChecksum ?? string.Empty);
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private static void MarkMigrationCompleted(SqlConnection connection, string migrationKey, string description, string scriptChecksum, bool succeeded, string errorMessage)
+        {
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = @"
+UPDATE dbo.SchemaMigrations
+SET Description = @Description,
+    ScriptChecksum = @ScriptChecksum,
+    CompletedAt = GETDATE(),
+    Succeeded = @Succeeded,
+    ErrorMessage = @ErrorMessage,
+    UpdatedAt = GETDATE()
+WHERE MigrationKey = @MigrationKey;";
+                command.Parameters.AddWithValue("@MigrationKey", migrationKey);
+                command.Parameters.AddWithValue("@Description", (object)description ?? DBNull.Value);
+                command.Parameters.AddWithValue("@ScriptChecksum", scriptChecksum ?? string.Empty);
+                command.Parameters.AddWithValue("@Succeeded", succeeded);
+                command.Parameters.AddWithValue("@ErrorMessage", string.IsNullOrWhiteSpace(errorMessage) ? (object)DBNull.Value : errorMessage);
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private static string ComputeChecksum(string content)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(content ?? string.Empty);
+                var hash = sha256.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+            }
         }
 
         private static void EnsureUserPublicCodeSchema(SqlConnection connection)
@@ -1070,6 +1517,164 @@ WHERE ISNULL(PublicUserCode, N'') = N'';");
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_Users_PublicUserCode' AND object_id = OBJECT_ID('dbo.Users'))
 BEGIN
     CREATE UNIQUE INDEX UX_Users_PublicUserCode ON dbo.Users(PublicUserCode) WHERE PublicUserCode IS NOT NULL;
+END;");
+        }
+
+        private static void EnsureWorkflowCompatibilitySchema(SqlConnection connection)
+        {
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reviews', 'UserId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD UserId INT NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reviews', 'ReservationId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD ReservationId INT NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Reviews_UserReservation' AND object_id = OBJECT_ID('dbo.Reviews'))
+BEGIN
+    CREATE INDEX IX_Reviews_UserReservation ON dbo.Reviews(UserId, ReservationId);
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reviews', 'IsFeatured') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD IsFeatured BIT NOT NULL CONSTRAINT DF_Reviews_IsFeatured DEFAULT(0);
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reviews', 'IsHidden') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD IsHidden BIT NOT NULL CONSTRAINT DF_Reviews_IsHidden DEFAULT(0);
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reviews', 'AdminReply') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reviews
+    ADD AdminReply NVARCHAR(500) NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reservations', 'CouponId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CouponId INT NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reservations', 'DiscountAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD DiscountAmount DECIMAL(10,2) NOT NULL CONSTRAINT DF_Reservations_DiscountAmount DEFAULT(0);
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reservations', 'CheckInCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CheckInCode NVARCHAR(20) NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reservations', 'CheckedInAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CheckedInAt DATETIME NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reservations', 'CheckInByUserId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Reservations
+    ADD CheckInByUserId INT NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NOT NULL AND COL_LENGTH('dbo.AfterSaleRequests', 'EvidenceUrl') IS NULL
+BEGIN
+    ALTER TABLE dbo.AfterSaleRequests
+    ADD EvidenceUrl NVARCHAR(500) NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NOT NULL AND COL_LENGTH('dbo.AfterSaleRequests', 'RejectReason') IS NULL
+BEGIN
+    ALTER TABLE dbo.AfterSaleRequests
+    ADD RejectReason NVARCHAR(500) NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NOT NULL AND COL_LENGTH('dbo.AfterSaleRequests', 'AppealReason') IS NULL
+BEGIN
+    ALTER TABLE dbo.AfterSaleRequests
+    ADD AppealReason NVARCHAR(500) NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NOT NULL AND COL_LENGTH('dbo.AfterSaleRequests', 'AcceptedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.AfterSaleRequests
+    ADD AcceptedAt DATETIME NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NOT NULL AND COL_LENGTH('dbo.AfterSaleRequests', 'RejectedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.AfterSaleRequests
+    ADD RejectedAt DATETIME NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.AfterSaleRequests', 'U') IS NOT NULL AND COL_LENGTH('dbo.AfterSaleRequests', 'AppealedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.AfterSaleRequests
+    ADD AppealedAt DATETIME NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL AND COL_LENGTH('dbo.Reservations', 'CheckInCode') IS NOT NULL
+BEGIN
+    UPDATE dbo.Reservations
+    SET CheckInCode = RIGHT(N'000000' + CONVERT(NVARCHAR(20), ABS(CHECKSUM(NEWID())) % 1000000), 6)
+    WHERE CheckInCode IS NULL OR CheckInCode = N'';
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Reservations', 'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Reservations_CheckInCode' AND object_id = OBJECT_ID('dbo.Reservations'))
+BEGIN
+    CREATE INDEX IX_Reservations_CheckInCode ON dbo.Reservations(CheckInCode, Status);
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Sessions', 'U') IS NOT NULL AND COL_LENGTH('dbo.Sessions', 'HostUserId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Sessions
+    ADD HostUserId INT NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Sessions', 'U') IS NOT NULL AND COL_LENGTH('dbo.Sessions', 'HostBriefing') IS NULL
+BEGIN
+    ALTER TABLE dbo.Sessions
+    ADD HostBriefing NVARCHAR(500) NULL;
+END;");
+
+            ExecuteNonQuery(connection, @"
+IF OBJECT_ID('dbo.Sessions', 'U') IS NOT NULL AND COL_LENGTH('dbo.Sessions', 'HostAcceptedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.Sessions
+    ADD HostAcceptedAt DATETIME NULL;
 END;");
         }
 

@@ -10,14 +10,21 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litRemainingSeats;
         protected global::System.Web.UI.WebControls.Literal litUnitPrice;
         protected global::System.Web.UI.WebControls.Literal litEstimatedAmount;
+        protected global::System.Web.UI.WebControls.Literal litCouponDiscount;
         protected global::System.Web.UI.WebControls.Panel pnlMessage;
         protected global::System.Web.UI.WebControls.Literal litMessage;
         protected global::System.Web.UI.WebControls.DropDownList ddlSessions;
         protected global::System.Web.UI.WebControls.TextBox txtContactName;
         protected global::System.Web.UI.WebControls.TextBox txtPhone;
         protected global::System.Web.UI.WebControls.TextBox txtPlayerCount;
+        protected global::System.Web.UI.WebControls.DropDownList ddlCoupons;
         protected global::System.Web.UI.WebControls.TextBox txtRemark;
         protected global::System.Web.UI.WebControls.Button btnSubmit;
+        protected global::System.Web.UI.WebControls.DropDownList ddlWaitlistSessions;
+        protected global::System.Web.UI.WebControls.Button btnJoinWaitlist;
         protected global::System.Web.UI.WebControls.Repeater rptRecentReservations;
+        protected global::System.Web.UI.WebControls.Repeater rptMyWaitlists;
+        protected global::System.Web.UI.WebControls.Repeater rptMyReservations;
+        protected global::System.Web.UI.WebControls.Repeater rptAfterSaleRequests;
     }
 }

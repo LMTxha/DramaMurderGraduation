@@ -96,6 +96,8 @@ namespace DramaMurderGraduation.Web
             ddlNotificationFilter.Items.Add(new ListItem("客服会话", "客服会话"));
             ddlNotificationFilter.Items.Add(new ListItem("优惠券", "优惠券"));
             ddlNotificationFilter.Items.Add(new ListItem("到店提醒", "到店提醒"));
+            ddlNotificationFilter.Items.Add(new ListItem("迟到提醒", "迟到提醒"));
+            ddlNotificationFilter.Items.Add(new ListItem("补位通知", "补位通知"));
             ddlNotificationFilter.Items.Add(new ListItem("售后进度", "售后进度"));
 
             var requestedFilter = Request.QueryString["filter"];
@@ -117,6 +119,8 @@ namespace DramaMurderGraduation.Web
                 case "客服会话":
                 case "优惠券":
                 case "到店提醒":
+                case "迟到提醒":
+                case "补位通知":
                 case "售后进度":
                     return notifications.Where(item => string.Equals(item.Category, ddlNotificationFilter.SelectedValue, StringComparison.OrdinalIgnoreCase)).ToList();
                 default:

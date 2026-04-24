@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web.Data
@@ -260,6 +261,137 @@ AND s.Id = @ScriptId;", command =>
             return list.Count > 0 ? list[0] : null;
         }
 
+        public IList<RecommendationInfo> GetRepurchaseRecommendations(int userId, int top)
+        {
+            const string sql = @"
+WITH UserPreference AS
+(
+    SELECT
+        ISNULL(NULLIF(MAX(pp.FavoriteGenre), N''), N'') AS FavoriteGenre,
+        (
+            SELECT TOP 1 rv.PlayerCount
+            FROM dbo.Reservations rv
+            INNER JOIN dbo.Sessions se ON se.Id = rv.SessionId
+            WHERE rv.UserId = @UserId
+              AND rv.Status IN (N'已完成', N'已到店', N'已确认', N'玩家已确认')
+            GROUP BY rv.PlayerCount
+            ORDER BY COUNT(1) DESC, MAX(rv.CreatedAt) DESC, rv.PlayerCount DESC
+        ) AS PreferredPlayerCount
+    FROM dbo.Users u
+    LEFT JOIN dbo.PlayerProfiles pp ON pp.UserId = u.Id
+    WHERE u.Id = @UserId
+)
+SELECT TOP (@Top)
+    s.Id,
+    s.Name AS Title,
+    ISNULL(NULLIF(s.Slogan, N''), LEFT(s.StoryBackground, 88)) AS Summary,
+    s.CoverImage,
+    ISNULL(pref.PreferredPlayerCount, 0) AS PlayerCount,
+    s.PlayerMin AS MinPlayerCount,
+    s.PlayerMax AS MaxPlayerCount,
+    s.Difficulty,
+    reviewStat.AverageRating AS Rating,
+    CASE
+        WHEN pref.FavoriteGenre <> N'' AND g.Name = pref.FavoriteGenre THEN N'偏好题材'
+        WHEN pref.PreferredPlayerCount IS NOT NULL AND pref.PreferredPlayerCount BETWEEN s.PlayerMin AND s.PlayerMax THEN N'适合组车'
+        WHEN sessionStat.UpcomingSessionCount > 0 THEN N'近期可约'
+        ELSE N'口碑推荐'
+    END AS HighlightTag,
+    g.Name AS GenreName,
+    sessionStat.UpcomingSessionCount,
+    sessionStat.NextSessionDateTime,
+    CASE
+        WHEN pref.FavoriteGenre <> N'' AND g.Name = pref.FavoriteGenre
+             AND pref.PreferredPlayerCount IS NOT NULL
+             AND pref.PreferredPlayerCount BETWEEN s.PlayerMin AND s.PlayerMax
+            THEN N'延续你常玩的' + pref.FavoriteGenre + N'题材，也适合你常组的' + CAST(pref.PreferredPlayerCount AS nvarchar(10)) + N'人车'
+        WHEN pref.FavoriteGenre <> N'' AND g.Name = pref.FavoriteGenre
+            THEN N'延续你常玩的' + pref.FavoriteGenre + N'题材，适合作为下一场安排'
+        WHEN pref.PreferredPlayerCount IS NOT NULL AND pref.PreferredPlayerCount BETWEEN s.PlayerMin AND s.PlayerMax
+            THEN N'适合你常组的' + CAST(pref.PreferredPlayerCount AS nvarchar(10)) + N'人车，拉好友继续开团更顺手'
+        WHEN reviewStat.AverageRating >= 4.5
+            THEN N'口碑评分稳定在高位，适合优先排进下一场'
+        ELSE N'近期可约场次较多，方便你直接续下一局'
+    END AS RecommendationReason,
+    CASE
+        WHEN sessionStat.UpcomingSessionCount > 0 AND sessionStat.NextSessionDateTime IS NOT NULL
+            THEN N'最近场次 ' + CONVERT(nvarchar(16), sessionStat.NextSessionDateTime, 120) + N' / 可约 ' + CAST(sessionStat.UpcomingSessionCount AS nvarchar(10)) + N' 场'
+        WHEN sessionStat.UpcomingSessionCount > 0
+            THEN N'当前仍有开放预约场次'
+        ELSE N'当前可先查看详情，等待下一轮排期'
+    END AS SecondaryReason,
+    N'Booking.aspx?scriptId=' + CAST(s.Id AS nvarchar(20)) AS DestinationUrl
+FROM dbo.Scripts s
+INNER JOIN dbo.Genres g ON g.Id = s.GenreId
+CROSS JOIN UserPreference pref
+OUTER APPLY
+(
+    SELECT
+        CAST(ISNULL(AVG(CAST(r.Rating AS decimal(10,2))), 0) AS decimal(10,2)) AS AverageRating,
+        COUNT(1) AS ReviewCount
+    FROM dbo.Reviews r
+    WHERE r.ScriptId = s.Id
+) reviewStat
+OUTER APPLY
+(
+    SELECT
+        COUNT(1) AS UpcomingSessionCount,
+        MIN(se.SessionDateTime) AS NextSessionDateTime
+    FROM dbo.Sessions se
+    WHERE se.ScriptId = s.Id
+      AND se.Status = N'开放预约'
+      AND se.SessionDateTime >= GETDATE()
+) sessionStat
+OUTER APPLY
+(
+    SELECT COUNT(1) AS PlayedCount
+    FROM dbo.Reservations rv
+    INNER JOIN dbo.Sessions se ON se.Id = rv.SessionId
+    WHERE rv.UserId = @UserId
+      AND se.ScriptId = s.Id
+      AND rv.Status IN (N'已完成', N'已到店')
+) playedStat
+WHERE s.AuditStatus = N'Approved'
+  AND playedStat.PlayedCount = 0
+ORDER BY
+    (
+        CASE WHEN pref.FavoriteGenre <> N'' AND g.Name = pref.FavoriteGenre THEN 35 ELSE 0 END +
+        CASE WHEN pref.PreferredPlayerCount IS NOT NULL AND pref.PreferredPlayerCount BETWEEN s.PlayerMin AND s.PlayerMax THEN 25 ELSE 0 END +
+        CASE WHEN sessionStat.UpcomingSessionCount > 0 THEN 20 ELSE 0 END +
+        CASE WHEN reviewStat.AverageRating >= 4.5 THEN 12 WHEN reviewStat.AverageRating >= 4.0 THEN 8 WHEN reviewStat.AverageRating >= 3.5 THEN 4 ELSE 0 END +
+        CASE WHEN s.IsFeatured = 1 THEN 6 ELSE 0 END +
+        CASE WHEN reviewStat.ReviewCount >= 5 THEN 4 ELSE 0 END
+    ) DESC,
+    CASE WHEN sessionStat.NextSessionDateTime IS NULL THEN 1 ELSE 0 END,
+    sessionStat.NextSessionDateTime ASC,
+    reviewStat.AverageRating DESC,
+    s.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@Top", top);
+            }, reader => new RecommendationInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                Title = GetString(reader, "Title"),
+                Summary = LocalizeImportedPlaceholder(GetString(reader, "Summary")),
+                CoverImage = GetString(reader, "CoverImage"),
+                PlayerCount = GetInt32(reader, "PlayerCount"),
+                MinPlayerCount = GetInt32(reader, "MinPlayerCount"),
+                MaxPlayerCount = GetInt32(reader, "MaxPlayerCount"),
+                Difficulty = LocalizeImportedPlaceholder(GetString(reader, "Difficulty")),
+                Rating = GetDecimal(reader, "Rating"),
+                HighlightTag = GetString(reader, "HighlightTag"),
+                GenreName = GetString(reader, "GenreName"),
+                UpcomingSessionCount = GetInt32(reader, "UpcomingSessionCount"),
+                NextSessionDateTime = GetNullableDateTime(reader, "NextSessionDateTime"),
+                RecommendationReason = GetString(reader, "RecommendationReason"),
+                SecondaryReason = GetString(reader, "SecondaryReason"),
+                DestinationUrl = GetString(reader, "DestinationUrl")
+            });
+        }
+
         public IList<ScriptCharacterInfo> GetCharactersByScript(int scriptId)
         {
             const string sql = @"
@@ -375,6 +507,9 @@ SELECT TOP (@Top)
     r.Name AS RoomName,
     s.SessionDateTime,
     s.HostName,
+    s.HostUserId,
+    s.HostBriefing,
+    s.HostAcceptedAt,
     s.BasePrice,
     s.MaxPlayers,
     ISNULL(SUM(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'申请改期') THEN rv.PlayerCount ELSE 0 END), 0) AS ReservedPlayers,
@@ -387,7 +522,7 @@ LEFT JOIN dbo.Reservations rv ON rv.SessionId = s.Id
 WHERE s.SessionDateTime >= GETDATE()
   AND sc.AuditStatus = N'Approved'
   AND (@ScriptId IS NULL OR s.ScriptId = @ScriptId)
-GROUP BY s.Id, s.ScriptId, s.RoomId, sc.Name, r.Name, s.SessionDateTime, s.HostName, s.BasePrice, s.MaxPlayers, s.Status
+GROUP BY s.Id, s.ScriptId, s.RoomId, sc.Name, r.Name, s.SessionDateTime, s.HostName, s.HostUserId, s.HostBriefing, s.HostAcceptedAt, s.BasePrice, s.MaxPlayers, s.Status
 HAVING s.Status = N'开放预约'
 ORDER BY s.SessionDateTime ASC;";
 
@@ -398,7 +533,46 @@ ORDER BY s.SessionDateTime ASC;";
             }, MapSession);
         }
 
-        public IList<DmSessionInfo> GetDmSessions(int top)
+        public IList<SessionInfo> GetUpcomingSessionsForWaitlist(int top, int? scriptId = null)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    s.Id,
+    s.ScriptId,
+    s.RoomId,
+    sc.Name AS ScriptName,
+    r.Name AS RoomName,
+    s.SessionDateTime,
+    s.HostName,
+    s.HostUserId,
+    s.HostBriefing,
+    s.HostAcceptedAt,
+    s.BasePrice,
+    s.MaxPlayers,
+    ISNULL(SUM(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'申请改期', N'玩家已确认', N'已到店') THEN rv.PlayerCount ELSE 0 END), 0) AS ReservedPlayers,
+    s.MaxPlayers - ISNULL(SUM(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'申请改期', N'玩家已确认', N'已到店') THEN rv.PlayerCount ELSE 0 END), 0) AS RemainingSeats,
+    s.Status
+FROM dbo.Sessions s
+INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+INNER JOIN dbo.Rooms r ON r.Id = s.RoomId
+LEFT JOIN dbo.Reservations rv ON rv.SessionId = s.Id
+WHERE s.SessionDateTime >= GETDATE()
+  AND s.Status = N'开放预约'
+  AND sc.AuditStatus = N'Approved'
+  AND (@ScriptId IS NULL OR s.ScriptId = @ScriptId)
+GROUP BY s.Id, s.ScriptId, s.RoomId, sc.Name, r.Name, s.SessionDateTime, s.HostName, s.HostUserId, s.HostBriefing, s.HostAcceptedAt, s.BasePrice, s.MaxPlayers, s.Status
+ORDER BY
+    CASE WHEN s.MaxPlayers - ISNULL(SUM(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'申请改期', N'玩家已确认', N'已到店') THEN rv.PlayerCount ELSE 0 END), 0) <= 0 THEN 0 ELSE 1 END,
+    s.SessionDateTime ASC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@ScriptId", (object)scriptId ?? DBNull.Value);
+            }, MapSession);
+        }
+
+        public IList<DmSessionInfo> GetDmSessions(int top, int? hostUserId = null)
         {
             const string sql = @"
 SELECT TOP (@Top)
@@ -407,6 +581,9 @@ SELECT TOP (@Top)
     sc.Name AS ScriptName,
     r.Name AS RoomName,
     s.HostName,
+    s.HostUserId,
+    s.HostBriefing,
+    s.HostAcceptedAt,
     s.SessionDateTime,
     s.Status,
     s.MaxPlayers,
@@ -418,7 +595,46 @@ SELECT TOP (@Top)
     CAST(CASE WHEN st.GameStartedAt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsGameStarted,
     CAST(CASE WHEN st.GameEndedAt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsGameEnded,
     CAST(CASE WHEN st.SettledAt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsSettled,
-    ISNULL(MIN(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'玩家已确认', N'已到店') AND ISNULL(rvUser.RoleCode, N'User') NOT IN (N'Admin', N'DM', N'Host', N'Director') THEN rv.Id END), 0) AS HostReservationId
+    ISNULL(MIN(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'玩家已确认', N'已到店') AND ISNULL(rvUser.RoleCode, N'User') NOT IN (N'Admin', N'DM', N'Host', N'Director') THEN rv.Id END), 0) AS HostReservationId,
+    LEFT(
+        ISNULL(
+            NULLIF(
+                STUFF(
+                    (
+                        SELECT N'；' + note.NoteText
+                        FROM
+                        (
+                            SELECT DISTINCT NULLIF(LTRIM(RTRIM(ISNULL(rv2.Remark, N''))), N'') AS NoteText
+                            FROM dbo.Reservations rv2
+                            LEFT JOIN dbo.Users rv2User ON rv2User.Id = rv2.UserId
+                            WHERE rv2.SessionId = s.Id
+                              AND ISNULL(rv2User.RoleCode, N'User') NOT IN (N'Admin', N'DM', N'Host', N'Director')
+
+                            UNION
+
+                            SELECT DISTINCT NULLIF(LTRIM(RTRIM(ISNULL(rv2.PlayerConfirmRemark, N''))), N'') AS NoteText
+                            FROM dbo.Reservations rv2
+                            LEFT JOIN dbo.Users rv2User ON rv2User.Id = rv2.UserId
+                            WHERE rv2.SessionId = s.Id
+                              AND ISNULL(rv2User.RoleCode, N'User') NOT IN (N'Admin', N'DM', N'Host', N'Director')
+
+                            UNION
+
+                            SELECT DISTINCT NULLIF(LTRIM(RTRIM(ISNULL(sm.Content, N''))), N'') AS NoteText
+                            FROM dbo.ServiceMessages sm
+                            INNER JOIN dbo.Reservations rv2 ON rv2.Id = sm.BusinessId AND sm.BusinessType = N'Reservation'
+                            LEFT JOIN dbo.Users rv2User ON rv2User.Id = rv2.UserId
+                            WHERE rv2.SessionId = s.Id
+                              AND sm.SenderRole = N'User'
+                              AND ISNULL(rv2User.RoleCode, N'User') NOT IN (N'Admin', N'DM', N'Host', N'Director')
+                        ) note
+                        WHERE note.NoteText IS NOT NULL
+                        FOR XML PATH(''), TYPE
+                    ).value('.', 'nvarchar(max)')
+                , 1, 1, N'')
+            , N'')
+        , N'暂无玩家备注')
+    , 240) AS PlayerNoteSummary
 FROM dbo.Sessions s
 INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
 INNER JOIN dbo.Rooms r ON r.Id = s.RoomId
@@ -429,25 +645,33 @@ LEFT JOIN dbo.GameStages gs ON gs.Id = st.CurrentStageId
 LEFT JOIN dbo.SessionCharacterAssignments a ON a.SessionId = s.Id AND a.ReservationId = rv.Id
 LEFT JOIN dbo.SessionVotes v ON v.SessionId = s.Id AND v.ReservationId = rv.Id
 WHERE sc.AuditStatus = N'Approved'
+  AND (@HostUserId IS NULL OR s.HostUserId = @HostUserId)
   AND (
       s.SessionDateTime >= DATEADD(day, -1, GETDATE())
       OR st.GameEndedAt IS NULL
   )
 GROUP BY
-    s.Id, s.ScriptId, sc.Name, r.Name, s.HostName, s.SessionDateTime, s.Status, s.MaxPlayers,
+    s.Id, s.ScriptId, sc.Name, r.Name, s.HostName, s.HostUserId, s.HostBriefing, s.HostAcceptedAt, s.SessionDateTime, s.Status, s.MaxPlayers,
     gs.StageName, st.GameStartedAt, st.GameEndedAt, st.SettledAt
 ORDER BY
     CASE WHEN st.GameEndedAt IS NULL THEN 0 ELSE 1 END,
     s.SessionDateTime ASC,
     s.Id ASC;";
 
-            return ExecuteList(sql, command => command.Parameters.AddWithValue("@Top", top), reader => new DmSessionInfo
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@HostUserId", (object)hostUserId ?? DBNull.Value);
+            }, reader => new DmSessionInfo
             {
                 SessionId = GetInt32(reader, "SessionId"),
                 ScriptId = GetInt32(reader, "ScriptId"),
                 ScriptName = GetString(reader, "ScriptName"),
                 RoomName = GetString(reader, "RoomName"),
                 HostName = GetString(reader, "HostName"),
+                HostUserId = GetNullableInt32(reader, "HostUserId"),
+                HostBriefing = GetString(reader, "HostBriefing"),
+                HostAcceptedAt = GetNullableDateTime(reader, "HostAcceptedAt"),
                 SessionDateTime = GetDateTime(reader, "SessionDateTime"),
                 Status = GetString(reader, "Status"),
                 MaxPlayers = GetInt32(reader, "MaxPlayers"),
@@ -459,7 +683,8 @@ ORDER BY
                 IsGameStarted = GetBoolean(reader, "IsGameStarted"),
                 IsGameEnded = GetBoolean(reader, "IsGameEnded"),
                 IsSettled = GetBoolean(reader, "IsSettled"),
-                HostReservationId = GetInt32(reader, "HostReservationId")
+                HostReservationId = GetInt32(reader, "HostReservationId"),
+                PlayerNoteSummary = GetString(reader, "PlayerNoteSummary")
             });
         }
 
@@ -474,6 +699,9 @@ SELECT
     r.Name AS RoomName,
     s.SessionDateTime,
     s.HostName,
+    s.HostUserId,
+    s.HostBriefing,
+    s.HostAcceptedAt,
     s.BasePrice,
     s.MaxPlayers,
     ISNULL(SUM(CASE WHEN rv.Status IN (N'待确认', N'已确认', N'申请改期') THEN rv.PlayerCount ELSE 0 END), 0) AS ReservedPlayers,
@@ -487,13 +715,13 @@ WHERE s.Id = @SessionId
   AND s.Status = N'开放预约'
   AND s.SessionDateTime >= GETDATE()
   AND sc.AuditStatus = N'Approved'
-GROUP BY s.Id, s.ScriptId, s.RoomId, sc.Name, r.Name, s.SessionDateTime, s.HostName, s.BasePrice, s.MaxPlayers, s.Status;";
+GROUP BY s.Id, s.ScriptId, s.RoomId, sc.Name, r.Name, s.SessionDateTime, s.HostName, s.HostUserId, s.HostBriefing, s.HostAcceptedAt, s.BasePrice, s.MaxPlayers, s.Status;";
 
             var sessions = ExecuteList(sql, command => command.Parameters.AddWithValue("@SessionId", sessionId), MapSession);
             return sessions.Count > 0 ? sessions[0] : null;
         }
 
-        public bool CreateAdminSession(int scriptId, int roomId, DateTime sessionDateTime, string hostName, decimal basePrice, int maxPlayers, out string message)
+        public bool CreateAdminSession(int scriptId, int roomId, DateTime sessionDateTime, string hostName, int? hostUserId, string hostBriefing, decimal basePrice, int maxPlayers, out string message)
         {
             if (sessionDateTime < DateTime.Now.AddHours(1))
             {
@@ -551,6 +779,8 @@ INSERT INTO dbo.Sessions
     RoomId,
     SessionDateTime,
     HostName,
+    HostUserId,
+    HostBriefing,
     BasePrice,
     MaxPlayers,
     Status
@@ -561,6 +791,8 @@ VALUES
     @RoomId,
     @SessionDateTime,
     @HostName,
+    @HostUserId,
+    @HostBriefing,
     @BasePrice,
     @MaxPlayers,
     N'开放预约'
@@ -573,6 +805,8 @@ VALUES
                 command.Parameters.AddWithValue("@RoomId", roomId);
                 command.Parameters.AddWithValue("@SessionDateTime", sessionDateTime);
                 command.Parameters.AddWithValue("@HostName", hostName.Trim());
+                command.Parameters.AddWithValue("@HostUserId", (object)hostUserId ?? DBNull.Value);
+                command.Parameters.AddWithValue("@HostBriefing", string.IsNullOrWhiteSpace(hostBriefing) ? (object)DBNull.Value : hostBriefing.Trim());
                 command.Parameters.AddWithValue("@BasePrice", basePrice);
                 command.Parameters.AddWithValue("@MaxPlayers", maxPlayers);
 
@@ -821,28 +1055,412 @@ SELECT TOP (@Top)
     r.Rating,
     r.Content,
     r.ReviewDate,
-    r.HighlightTag
+    r.HighlightTag,
+    r.UserId,
+    r.ReservationId,
+    rm.Name AS RoomName,
+    se.SessionDateTime,
+    ISNULL(rv.TotalAmount, rv.UnitPrice * rv.PlayerCount) AS ReservationAmount,
+    rv.Status AS ReservationStatus,
+    ISNULL(r.IsFeatured, 0) AS IsFeatured,
+    ISNULL(r.IsHidden, 0) AS IsHidden,
+    r.AdminReply
 FROM dbo.Reviews r
 INNER JOIN dbo.Scripts s ON s.Id = r.ScriptId
+LEFT JOIN dbo.Reservations rv ON rv.Id = r.ReservationId
+LEFT JOIN dbo.Sessions se ON se.Id = rv.SessionId
+LEFT JOIN dbo.Rooms rm ON rm.Id = se.RoomId
 WHERE s.AuditStatus = N'Approved'
+  AND ISNULL(r.IsHidden, 0) = 0
   AND (@ScriptId IS NULL OR r.ScriptId = @ScriptId)
-ORDER BY r.ReviewDate DESC, r.Id DESC;";
+ORDER BY ISNULL(r.IsFeatured, 0) DESC, r.ReviewDate DESC, r.Id DESC;";
 
             return ExecuteList(sql, command =>
             {
                 command.Parameters.AddWithValue("@Top", top);
                 command.Parameters.AddWithValue("@ScriptId", (object)scriptId ?? DBNull.Value);
-            }, reader => new ReviewInfo
+            }, MapReview);
+        }
+
+        public bool AcceptDmAssignment(int sessionId, int hostUserId, out string message)
+        {
+            const string sql = @"
+UPDATE dbo.Sessions
+SET HostAcceptedAt = GETDATE()
+WHERE Id = @SessionId
+  AND HostUserId = @HostUserId;
+
+IF @@ROWCOUNT = 0
+BEGIN
+    RAISERROR(N'未找到分配给你的主持场次。', 16, 1);
+    RETURN;
+END
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'Session', @SessionId, N'DM接单', N'DM 已接收主持任务', NULL, @HostUserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
             {
-                Id = GetInt32(reader, "Id"),
-                ScriptId = GetInt32(reader, "ScriptId"),
-                ScriptName = GetString(reader, "ScriptName"),
-                ReviewerName = GetString(reader, "ReviewerName"),
-                Rating = GetInt32(reader, "Rating"),
-                Content = GetString(reader, "Content"),
-                ReviewDate = GetDateTime(reader, "ReviewDate"),
-                HighlightTag = GetString(reader, "HighlightTag")
-            });
+                command.Parameters.AddWithValue("@SessionId", sessionId);
+                command.Parameters.AddWithValue("@HostUserId", hostUserId);
+            }, "已接收主持任务。", out message);
+        }
+
+        public IList<ReservationInfo> GetReviewableReservations(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    r.Id,
+    r.SessionId,
+    se.ScriptId,
+    r.ContactName,
+    r.Phone,
+    s.Name AS ScriptName,
+    rm.Name AS RoomName,
+    se.HostName,
+    r.PlayerCount,
+    ISNULL(r.UnitPrice, se.BasePrice) AS UnitPrice,
+    ISNULL(r.TotalAmount, se.BasePrice * r.PlayerCount) AS TotalAmount,
+    r.CouponId,
+    ISNULL(r.DiscountAmount, 0) AS DiscountAmount,
+    ISNULL(c.Title, N'') AS CouponTitle,
+    ISNULL(NULLIF(r.PaymentStatus, N''), N'线下确认') AS PaymentStatus,
+    ISNULL(r.CheckInCode, N'') AS CheckInCode,
+    r.CheckedInAt,
+    r.Remark,
+    r.AdminRemark,
+    r.AdminReply,
+    r.ConfirmStatus,
+    r.PlayerConfirmRemark,
+    r.CreatedAt,
+    se.SessionDateTime,
+    r.Status,
+    r.ProcessedAt,
+    r.RepliedAt,
+    r.PlayerConfirmedAt
+FROM dbo.Reservations r
+INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
+INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
+INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+LEFT JOIN dbo.UserCoupons c ON c.Id = r.CouponId
+WHERE r.UserId = @UserId
+  AND r.Status NOT IN (N'已取消')
+  AND NOT EXISTS
+  (
+      SELECT 1
+      FROM dbo.Reviews rv
+      WHERE rv.ReservationId = r.Id
+        AND rv.UserId = @UserId
+  )
+ORDER BY se.SessionDateTime DESC, r.CreatedAt DESC, r.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+            }, MapAdminReservationInfo);
+        }
+
+        public bool CreateReservationReview(int reservationId, int userId, int rating, string content, string highlightTag, out string message)
+        {
+            const string sql = @"
+IF @Rating < 1 OR @Rating > 5
+BEGIN
+    RAISERROR(N'评分必须在 1 到 5 之间。', 16, 1);
+    RETURN;
+END
+
+IF NULLIF(@Content, N'') IS NULL
+BEGIN
+    RAISERROR(N'请填写真实体验内容。', 16, 1);
+    RETURN;
+END
+
+DECLARE @ScriptId INT;
+DECLARE @ReviewerName NVARCHAR(50);
+
+SELECT
+    @ScriptId = se.ScriptId,
+    @ReviewerName = u.DisplayName
+FROM dbo.Reservations r
+INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
+INNER JOIN dbo.Users u ON u.Id = r.UserId
+WHERE r.Id = @ReservationId
+  AND r.UserId = @UserId
+  AND r.Status NOT IN (N'已取消');
+
+IF @ScriptId IS NULL
+BEGIN
+    RAISERROR(N'未找到可评价的预约订单。', 16, 1);
+    RETURN;
+END
+
+IF EXISTS (SELECT 1 FROM dbo.Reviews WHERE ReservationId = @ReservationId AND UserId = @UserId)
+BEGIN
+    RAISERROR(N'这笔预约已经提交过评价。', 16, 1);
+    RETURN;
+END
+
+INSERT INTO dbo.Reviews
+(
+    ScriptId,
+    ReviewerName,
+    Rating,
+    Content,
+    ReviewDate,
+    HighlightTag,
+    UserId,
+    ReservationId
+)
+VALUES
+(
+    @ScriptId,
+    @ReviewerName,
+    @Rating,
+    @Content,
+    GETDATE(),
+    CASE WHEN NULLIF(@HighlightTag, N'') IS NULL THEN N'真实体验' ELSE @HighlightTag END,
+    @UserId,
+    @ReservationId
+);
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'Review', SCOPE_IDENTITY(), N'提交评价', N'用户提交消费后评价', @Content, @UserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@ReservationId", reservationId);
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@Rating", rating);
+                command.Parameters.AddWithValue("@Content", (content ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@HighlightTag", (object)(highlightTag ?? string.Empty).Trim());
+            }, "评价已提交，已同步到剧本评分与点评列表。", out message);
+        }
+
+        public IList<ReviewInfo> GetReviewsForAdmin(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    r.Id,
+    r.ScriptId,
+    s.Name AS ScriptName,
+    r.ReviewerName,
+    r.Rating,
+    r.Content,
+    r.ReviewDate,
+    r.HighlightTag,
+    r.UserId,
+    r.ReservationId,
+    rm.Name AS RoomName,
+    se.SessionDateTime,
+    ISNULL(rv.TotalAmount, rv.UnitPrice * rv.PlayerCount) AS ReservationAmount,
+    rv.Status AS ReservationStatus,
+    ISNULL(r.IsFeatured, 0) AS IsFeatured,
+    ISNULL(r.IsHidden, 0) AS IsHidden,
+    r.AdminReply
+FROM dbo.Reviews r
+INNER JOIN dbo.Scripts s ON s.Id = r.ScriptId
+LEFT JOIN dbo.Reservations rv ON rv.Id = r.ReservationId
+LEFT JOIN dbo.Sessions se ON se.Id = rv.SessionId
+LEFT JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+ORDER BY
+    CASE WHEN r.Rating <= 2 AND ISNULL(r.AdminReply, N'') = N'' THEN 0 ELSE 1 END,
+    r.ReviewDate DESC,
+    r.Id DESC;";
+
+            return ExecuteList(sql, command => command.Parameters.AddWithValue("@Top", top), MapReview);
+        }
+
+        public ReviewInfo GetReservationReview(int reservationId, int? userId = null)
+        {
+            const string sql = @"
+SELECT TOP 1
+    r.Id,
+    r.ScriptId,
+    s.Name AS ScriptName,
+    r.ReviewerName,
+    r.Rating,
+    r.Content,
+    r.ReviewDate,
+    r.HighlightTag,
+    r.UserId,
+    r.ReservationId,
+    rm.Name AS RoomName,
+    se.SessionDateTime,
+    ISNULL(rv.TotalAmount, rv.UnitPrice * rv.PlayerCount) AS ReservationAmount,
+    rv.Status AS ReservationStatus,
+    ISNULL(r.IsFeatured, 0) AS IsFeatured,
+    ISNULL(r.IsHidden, 0) AS IsHidden,
+    r.AdminReply
+FROM dbo.Reviews r
+INNER JOIN dbo.Scripts s ON s.Id = r.ScriptId
+INNER JOIN dbo.Reservations rv ON rv.Id = r.ReservationId
+INNER JOIN dbo.Sessions se ON se.Id = rv.SessionId
+INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+WHERE r.ReservationId = @ReservationId
+  AND (@UserId IS NULL OR r.UserId = @UserId)
+ORDER BY r.ReviewDate DESC, r.Id DESC;";
+
+            var reviews = ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@ReservationId", reservationId);
+                command.Parameters.AddWithValue("@UserId", (object)userId ?? DBNull.Value);
+            }, MapReview);
+
+            return reviews.Count > 0 ? reviews[0] : null;
+        }
+
+        public bool ModerateReview(int reviewId, bool isFeatured, bool isHidden, string adminReply, int adminUserId, out string message)
+        {
+            const string sql = @"
+UPDATE dbo.Reviews
+SET IsFeatured = @IsFeatured,
+    IsHidden = @IsHidden,
+    AdminReply = NULLIF(@AdminReply, N'')
+WHERE Id = @ReviewId;
+
+IF @@ROWCOUNT = 0
+BEGIN
+    RAISERROR(N'未找到对应评价。', 16, 1);
+    RETURN;
+END
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'Review', @ReviewId, N'评价管理', N'管理员处理玩家评价', @AdminReply, @AdminUserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@ReviewId", reviewId);
+                command.Parameters.AddWithValue("@IsFeatured", isFeatured);
+                command.Parameters.AddWithValue("@IsHidden", isHidden);
+                command.Parameters.AddWithValue("@AdminReply", (object)(adminReply ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@AdminUserId", adminUserId);
+            }, "评价管理设置已保存。", out message);
+        }
+
+        public IList<CouponInfo> GetAvailableCoupons(int userId, decimal orderAmount)
+        {
+            const string sql = @"
+SELECT
+    c.Id,
+    c.UserId,
+    u.DisplayName AS UserDisplayName,
+    u.Username,
+    c.Title,
+    c.CouponType,
+    c.DiscountAmount,
+    c.MinSpend,
+    c.Status,
+    c.Source,
+    c.IssuedAt,
+    c.ValidFrom,
+    c.ValidUntil,
+    c.UsedReservationId,
+    c.UsedAt
+FROM dbo.UserCoupons c
+INNER JOIN dbo.Users u ON u.Id = c.UserId
+WHERE c.UserId = @UserId
+  AND c.Status = N'未使用'
+  AND c.ValidFrom <= GETDATE()
+  AND c.ValidUntil >= GETDATE()
+  AND c.MinSpend <= @OrderAmount
+ORDER BY c.ValidUntil ASC, c.DiscountAmount DESC, c.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@OrderAmount", orderAmount < 0 ? 0 : orderAmount);
+            }, MapCoupon);
+        }
+
+        public IList<CouponInfo> GetRecentCouponsForAdmin(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    c.Id,
+    c.UserId,
+    u.DisplayName AS UserDisplayName,
+    u.Username,
+    c.Title,
+    c.CouponType,
+    c.DiscountAmount,
+    c.MinSpend,
+    c.Status,
+    c.Source,
+    c.IssuedAt,
+    c.ValidFrom,
+    c.ValidUntil,
+    c.UsedReservationId,
+    c.UsedAt
+FROM dbo.UserCoupons c
+INNER JOIN dbo.Users u ON u.Id = c.UserId
+ORDER BY c.IssuedAt DESC, c.Id DESC;";
+
+            return ExecuteList(sql, command => command.Parameters.AddWithValue("@Top", top), MapCoupon);
+        }
+
+        public bool IssueCoupon(int userId, string title, decimal discountAmount, decimal minSpend, int validDays, string source, int adminUserId, out string message)
+        {
+            const string sql = @"
+IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE Id = @UserId AND ReviewStatus = N'Approved')
+BEGIN
+    RAISERROR(N'发券用户不存在或尚未通过审核。', 16, 1);
+    RETURN;
+END
+
+IF @DiscountAmount <= 0
+BEGIN
+    RAISERROR(N'优惠金额必须大于 0。', 16, 1);
+    RETURN;
+END
+
+IF @ValidDays <= 0
+BEGIN
+    SET @ValidDays = 30;
+END
+
+INSERT INTO dbo.UserCoupons
+(
+    UserId,
+    Title,
+    CouponType,
+    DiscountAmount,
+    MinSpend,
+    Status,
+    Source,
+    IssuedByUserId,
+    IssuedAt,
+    ValidFrom,
+    ValidUntil
+)
+VALUES
+(
+    @UserId,
+    @Title,
+    N'Amount',
+    @DiscountAmount,
+    CASE WHEN @MinSpend < 0 THEN 0 ELSE @MinSpend END,
+    N'未使用',
+    NULLIF(@Source, N''),
+    @AdminUserId,
+    GETDATE(),
+    GETDATE(),
+    DATEADD(day, @ValidDays, GETDATE())
+);
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'Coupon', SCOPE_IDENTITY(), N'发放优惠券', N'管理员发放复购优惠券', @Title, @AdminUserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@Title", string.IsNullOrWhiteSpace(title) ? "复购优惠券" : title.Trim());
+                command.Parameters.AddWithValue("@DiscountAmount", discountAmount);
+                command.Parameters.AddWithValue("@MinSpend", minSpend);
+                command.Parameters.AddWithValue("@ValidDays", validDays);
+                command.Parameters.AddWithValue("@Source", (object)(source ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@AdminUserId", adminUserId);
+            }, "优惠券已发放，用户预约时可以直接抵扣。", out message);
         }
 
         public bool CreateReservation(BookingCreateRequest request, out int reservationId, out string message)
@@ -850,10 +1468,13 @@ ORDER BY r.ReviewDate DESC, r.Id DESC;";
             const string sql = @"
 DECLARE @RemainingSeats INT;
 DECLARE @UnitPrice DECIMAL(10,2);
+DECLARE @OriginalAmount DECIMAL(10,2);
+DECLARE @DiscountAmount DECIMAL(10,2);
 DECLARE @TotalAmount DECIMAL(10,2);
 DECLARE @BalanceAfter DECIMAL(10,2);
 DECLARE @WalletTransactionId INT;
 DECLARE @ReservationId INT;
+DECLARE @CouponMatches INT;
 
 SELECT
     @RemainingSeats = s.MaxPlayers - ISNULL(SUM(CASE WHEN r.Status IN (N'待确认', N'已确认', N'申请改期') THEN r.PlayerCount ELSE 0 END), 0),
@@ -878,7 +1499,35 @@ BEGIN
     RETURN;
 END
 
-SET @TotalAmount = @UnitPrice * @PlayerCount;
+SET @OriginalAmount = @UnitPrice * @PlayerCount;
+SET @DiscountAmount = 0;
+SET @CouponMatches = 0;
+
+IF @CouponId IS NOT NULL
+BEGIN
+    SELECT
+        @CouponMatches = COUNT(1),
+        @DiscountAmount = MAX(CASE WHEN DiscountAmount > @OriginalAmount THEN @OriginalAmount ELSE DiscountAmount END)
+    FROM dbo.UserCoupons WITH (UPDLOCK, HOLDLOCK)
+    WHERE Id = @CouponId
+      AND UserId = @UserId
+      AND Status = N'未使用'
+      AND ValidFrom <= GETDATE()
+      AND ValidUntil >= GETDATE()
+      AND MinSpend <= @OriginalAmount;
+
+    IF @CouponMatches = 0
+    BEGIN
+        RAISERROR(N'所选优惠券不可用，可能已使用、已过期或未达到满减门槛。', 16, 1);
+        RETURN;
+    END
+END
+
+SET @TotalAmount = @OriginalAmount - ISNULL(@DiscountAmount, 0);
+IF @TotalAmount < 0
+BEGIN
+    SET @TotalAmount = 0;
+END
 
 UPDATE dbo.Users
 SET Balance = Balance - @TotalAmount
@@ -910,8 +1559,11 @@ INSERT INTO dbo.Reservations
     PlayerCount,
     UnitPrice,
     TotalAmount,
+    CouponId,
+    DiscountAmount,
     PaymentStatus,
     PaymentTransactionId,
+    CheckInCode,
     Remark,
     CreatedAt,
     Status
@@ -925,14 +1577,34 @@ VALUES
     @PlayerCount,
     @UnitPrice,
     @TotalAmount,
+    @CouponId,
+    ISNULL(@DiscountAmount, 0),
     N'已支付',
     @WalletTransactionId,
+    RIGHT(N'000000' + CONVERT(NVARCHAR(20), ABS(CHECKSUM(NEWID())) % 1000000), 6),
     @Remark,
     GETDATE(),
     N'待确认'
 );
 
 SET @ReservationId = SCOPE_IDENTITY();
+
+UPDATE dbo.ReservationWaitlists
+SET Status = N'Booked'
+WHERE SessionId = @SessionId
+  AND UserId = @UserId
+  AND Status = N'Pending';
+
+IF @CouponId IS NOT NULL
+BEGIN
+    UPDATE dbo.UserCoupons
+    SET Status = N'已使用',
+        UsedReservationId = @ReservationId,
+        UsedAt = GETDATE()
+    WHERE Id = @CouponId
+      AND UserId = @UserId;
+END
+
 SELECT @ReservationId;";
 
             using (var connection = DbHelper.CreateConnection())
@@ -945,6 +1617,7 @@ SELECT @ReservationId;";
                 command.Parameters.AddWithValue("@Phone", request.Phone);
                 command.Parameters.AddWithValue("@PlayerCount", request.PlayerCount);
                 command.Parameters.AddWithValue("@Remark", (object)request.Remark ?? DBNull.Value);
+                command.Parameters.AddWithValue("@CouponId", (object)request.CouponId ?? DBNull.Value);
 
                 connection.Open();
                 using (var transaction = connection.BeginTransaction())
@@ -982,7 +1655,12 @@ SELECT TOP (@Top)
     r.PlayerCount,
     ISNULL(r.UnitPrice, se.BasePrice) AS UnitPrice,
     ISNULL(r.TotalAmount, se.BasePrice * r.PlayerCount) AS TotalAmount,
+    r.CouponId,
+    ISNULL(r.DiscountAmount, 0) AS DiscountAmount,
+    ISNULL(c.Title, N'') AS CouponTitle,
     ISNULL(NULLIF(r.PaymentStatus, N''), N'线下确认') AS PaymentStatus,
+    ISNULL(r.CheckInCode, N'') AS CheckInCode,
+    r.CheckedInAt,
     se.SessionDateTime,
     r.Status,
     r.AdminReply,
@@ -994,6 +1672,7 @@ FROM dbo.Reservations r
 INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
 INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
 INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+LEFT JOIN dbo.UserCoupons c ON c.Id = r.CouponId
 WHERE s.AuditStatus = N'Approved'
 ORDER BY r.CreatedAt DESC, r.Id DESC;";
 
@@ -1009,7 +1688,12 @@ ORDER BY r.CreatedAt DESC, r.Id DESC;";
                 PlayerCount = GetInt32(reader, "PlayerCount"),
                 UnitPrice = GetDecimal(reader, "UnitPrice"),
                 TotalAmount = GetDecimal(reader, "TotalAmount"),
+                CouponId = GetNullableInt32(reader, "CouponId"),
+                DiscountAmount = GetDecimal(reader, "DiscountAmount"),
+                CouponTitle = GetString(reader, "CouponTitle"),
                 PaymentStatus = GetString(reader, "PaymentStatus"),
+                CheckInCode = GetString(reader, "CheckInCode"),
+                CheckedInAt = GetNullableDateTime(reader, "CheckedInAt"),
                 SessionDateTime = GetDateTime(reader, "SessionDateTime"),
                 Status = GetString(reader, "Status"),
                 AdminReply = GetString(reader, "AdminReply"),
@@ -1035,15 +1719,29 @@ SELECT TOP 1
     r.PlayerCount,
     ISNULL(r.UnitPrice, se.BasePrice) AS UnitPrice,
     ISNULL(r.TotalAmount, se.BasePrice * r.PlayerCount) AS TotalAmount,
+    r.CouponId,
+    ISNULL(r.DiscountAmount, 0) AS DiscountAmount,
+    ISNULL(c.Title, N'') AS CouponTitle,
     ISNULL(NULLIF(r.PaymentStatus, N''), N'线下确认') AS PaymentStatus,
+    ISNULL(r.CheckInCode, N'') AS CheckInCode,
+    r.CheckedInAt,
+    r.Remark,
+    r.AdminRemark,
+    r.ConfirmStatus,
+    r.PlayerConfirmRemark,
+    r.CreatedAt,
     se.SessionDateTime,
     r.Status,
     r.AdminReply,
-    r.RepliedAt
+    r.ProcessedAt,
+    r.PlayerConfirmedAt,
+    r.RepliedAt,
+    CASE WHEN EXISTS (SELECT 1 FROM dbo.Reviews rv WHERE rv.ReservationId = r.Id) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS HasReview
 FROM dbo.Reservations r
 INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
 INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
 INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+LEFT JOIN dbo.UserCoupons c ON c.Id = r.CouponId
 WHERE r.Id = @ReservationId
   AND (@UserId IS NULL OR r.UserId = @UserId);";
 
@@ -1064,11 +1762,24 @@ WHERE r.Id = @ReservationId
                 PlayerCount = GetInt32(reader, "PlayerCount"),
                 UnitPrice = GetDecimal(reader, "UnitPrice"),
                 TotalAmount = GetDecimal(reader, "TotalAmount"),
+                CouponId = GetNullableInt32(reader, "CouponId"),
+                DiscountAmount = GetDecimal(reader, "DiscountAmount"),
+                CouponTitle = GetString(reader, "CouponTitle"),
                 PaymentStatus = GetString(reader, "PaymentStatus"),
+                CheckInCode = GetString(reader, "CheckInCode"),
+                CheckedInAt = GetNullableDateTime(reader, "CheckedInAt"),
+                Remark = GetString(reader, "Remark"),
+                AdminRemark = GetString(reader, "AdminRemark"),
+                ConfirmStatus = GetString(reader, "ConfirmStatus"),
+                PlayerConfirmRemark = GetString(reader, "PlayerConfirmRemark"),
+                CreatedAt = GetDateTime(reader, "CreatedAt"),
                 SessionDateTime = GetDateTime(reader, "SessionDateTime"),
                 Status = GetString(reader, "Status"),
                 AdminReply = GetString(reader, "AdminReply"),
-                RepliedAt = GetNullableDateTime(reader, "RepliedAt")
+                ProcessedAt = GetNullableDateTime(reader, "ProcessedAt"),
+                PlayerConfirmedAt = GetNullableDateTime(reader, "PlayerConfirmedAt"),
+                RepliedAt = GetNullableDateTime(reader, "RepliedAt"),
+                HasReview = GetBoolean(reader, "HasReview")
             });
 
             return items.Count > 0 ? items[0] : null;
@@ -1088,7 +1799,12 @@ SELECT TOP (@Top)
     r.PlayerCount,
     ISNULL(r.UnitPrice, se.BasePrice) AS UnitPrice,
     ISNULL(r.TotalAmount, se.BasePrice * r.PlayerCount) AS TotalAmount,
+    r.CouponId,
+    ISNULL(r.DiscountAmount, 0) AS DiscountAmount,
+    ISNULL(c.Title, N'') AS CouponTitle,
     ISNULL(NULLIF(r.PaymentStatus, N''), N'线下确认') AS PaymentStatus,
+    ISNULL(r.CheckInCode, N'') AS CheckInCode,
+    r.CheckedInAt,
     r.Remark,
     r.AdminRemark,
     r.AdminReply,
@@ -1104,6 +1820,7 @@ FROM dbo.Reservations r
 INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
 INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
 INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+LEFT JOIN dbo.UserCoupons c ON c.Id = r.CouponId
 WHERE (@StatusFilter IS NULL OR r.Status = @StatusFilter OR r.ConfirmStatus = @StatusFilter)
   AND (
         @Keyword IS NULL
@@ -1131,6 +1848,163 @@ ORDER BY
                 command.Parameters.AddWithValue("@Keyword", string.IsNullOrWhiteSpace(keyword) ? (object)DBNull.Value : keyword.Trim());
                 command.Parameters.AddWithValue("@DateFilter", string.IsNullOrWhiteSpace(dateFilter) ? (object)DBNull.Value : dateFilter);
             }, MapAdminReservationInfo);
+        }
+
+        public IList<ReservationInfo> GetReservationsForUser(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    r.Id,
+    r.SessionId,
+    se.ScriptId,
+    r.ContactName,
+    r.Phone,
+    s.Name AS ScriptName,
+    rm.Name AS RoomName,
+    se.HostName,
+    r.PlayerCount,
+    ISNULL(r.UnitPrice, se.BasePrice) AS UnitPrice,
+    ISNULL(r.TotalAmount, se.BasePrice * r.PlayerCount) AS TotalAmount,
+    r.CouponId,
+    ISNULL(r.DiscountAmount, 0) AS DiscountAmount,
+    ISNULL(c.Title, N'') AS CouponTitle,
+    ISNULL(NULLIF(r.PaymentStatus, N''), N'线下确认') AS PaymentStatus,
+    ISNULL(r.CheckInCode, N'') AS CheckInCode,
+    r.CheckedInAt,
+    r.Remark,
+    r.AdminRemark,
+    r.AdminReply,
+    r.ConfirmStatus,
+    r.PlayerConfirmRemark,
+    r.CreatedAt,
+    se.SessionDateTime,
+    r.Status,
+    r.ProcessedAt,
+    r.RepliedAt,
+    r.PlayerConfirmedAt,
+    latestAfterSale.Id AS LatestAfterSaleId,
+    latestAfterSale.RequestType AS LatestAfterSaleType,
+    latestAfterSale.Status AS LatestAfterSaleStatus,
+    latestAfterSale.CreatedAt AS LatestAfterSaleCreatedAt
+FROM dbo.Reservations r
+INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
+INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
+INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+LEFT JOIN dbo.UserCoupons c ON c.Id = r.CouponId
+OUTER APPLY
+(
+    SELECT TOP 1 Id, RequestType, Status, CreatedAt
+    FROM dbo.AfterSaleRequests a
+    WHERE a.ReservationId = r.Id
+    ORDER BY a.CreatedAt DESC, a.Id DESC
+) latestAfterSale
+WHERE r.UserId = @UserId
+ORDER BY r.CreatedAt DESC, r.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+            }, MapUserReservationInfo);
+        }
+
+        public bool JoinReservationWaitlist(int userId, int sessionId, string contactName, string phone, int playerCount, string note, out string message)
+        {
+            const string sql = @"
+DECLARE @RemainingSeats INT;
+DECLARE @SessionExists INT;
+
+SELECT
+    @SessionExists = COUNT(1),
+    @RemainingSeats = s.MaxPlayers - ISNULL(SUM(CASE WHEN r.Status IN (N'待确认', N'已确认', N'申请改期', N'玩家已确认', N'已到店') THEN r.PlayerCount ELSE 0 END), 0)
+FROM dbo.Sessions s WITH (UPDLOCK, HOLDLOCK)
+INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+LEFT JOIN dbo.Reservations r ON r.SessionId = s.Id
+WHERE s.Id = @SessionId
+  AND s.Status = N'开放预约'
+  AND s.SessionDateTime >= GETDATE()
+  AND sc.AuditStatus = N'Approved'
+GROUP BY s.MaxPlayers;
+
+IF ISNULL(@SessionExists, 0) = 0
+BEGIN
+    RAISERROR(N'当前场次不存在或已停止预约。', 16, 1);
+    RETURN;
+END
+
+IF @RemainingSeats >= @PlayerCount
+BEGIN
+    RAISERROR(N'当前场次仍可直接预约，无需加入候补。', 16, 1);
+    RETURN;
+END
+
+IF EXISTS
+(
+    SELECT 1
+    FROM dbo.ReservationWaitlists
+    WHERE SessionId = @SessionId
+      AND UserId = @UserId
+      AND Status = N'Pending'
+)
+BEGIN
+    RAISERROR(N'你已经在这个场次的候补队列里，无需重复提交。', 16, 1);
+    RETURN;
+END
+
+INSERT INTO dbo.ReservationWaitlists(SessionId, UserId, ContactName, Phone, PlayerCount, Note, Status, CreatedAt)
+VALUES(@SessionId, @UserId, @ContactName, @Phone, @PlayerCount, NULLIF(@Note, N''), N'Pending', GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@SessionId", sessionId);
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@ContactName", (contactName ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@Phone", (phone ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@PlayerCount", playerCount);
+                command.Parameters.AddWithValue("@Note", (note ?? string.Empty).Trim());
+            }, "已加入候补队列，场次腾出名额后会在通知中心提醒你。", out message);
+        }
+
+        public IList<ReservationWaitlistInfo> GetReservationWaitlistsForUser(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    w.Id,
+    w.SessionId,
+    w.UserId,
+    w.ContactName,
+    w.Phone,
+    w.PlayerCount,
+    w.Note,
+    w.Status,
+    w.CreatedAt,
+    s.Name AS ScriptName,
+    rm.Name AS RoomName,
+    se.HostName,
+    se.SessionDateTime,
+    se.MaxPlayers - ISNULL(activeReservation.ReservedPlayers, 0) AS RemainingSeats
+FROM dbo.ReservationWaitlists w
+INNER JOIN dbo.Sessions se ON se.Id = w.SessionId
+INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
+INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+OUTER APPLY
+(
+    SELECT ISNULL(SUM(r.PlayerCount), 0) AS ReservedPlayers
+    FROM dbo.Reservations r
+    WHERE r.SessionId = se.Id
+      AND r.Status IN (N'待确认', N'已确认', N'申请改期', N'玩家已确认', N'已到店')
+) activeReservation
+WHERE w.UserId = @UserId
+ORDER BY
+    CASE WHEN w.Status = N'Pending' THEN 0 ELSE 1 END,
+    w.CreatedAt DESC,
+    w.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+            }, MapReservationWaitlistInfo);
         }
 
         public bool ReviewReservation(int reservationId, string reservationStatus, string paymentStatus, string adminRemark, string adminReply, int adminUserId, out string message)
@@ -1308,6 +2182,560 @@ VALUES(N'Reservation', @ReservationId, N'申请改期', N'玩家申请预约改�
             }, "已提交改期申请，等待门店重新回复。", out message);
         }
 
+        public bool CreateAfterSaleRequest(int reservationId, int userId, string requestType, string reason, decimal requestedAmount, string evidenceUrl, out string message)
+        {
+            const string sql = @"
+IF NULLIF(@Reason, N'') IS NULL
+BEGIN
+    RAISERROR(N'请填写售后原因，方便门店处理。', 16, 1);
+    RETURN;
+END
+
+DECLARE @ReservationAmount DECIMAL(10,2);
+
+SELECT @ReservationAmount = ISNULL(TotalAmount, UnitPrice * PlayerCount)
+FROM dbo.Reservations
+WHERE Id = @ReservationId
+  AND UserId = @UserId;
+
+IF @ReservationAmount IS NULL
+BEGIN
+    RAISERROR(N'未找到可申请售后的预约订单。', 16, 1);
+    RETURN;
+END
+
+IF EXISTS
+(
+    SELECT 1
+    FROM dbo.AfterSaleRequests
+    WHERE ReservationId = @ReservationId
+      AND Status IN (N'待处理', N'已受理', N'待复审')
+)
+BEGIN
+    RAISERROR(N'该订单已有正在处理中的售后申请，请等待管理员回复。', 16, 1);
+    RETURN;
+END
+
+IF @RequestedAmount < 0
+BEGIN
+    SET @RequestedAmount = 0;
+END
+
+IF @RequestedAmount > @ReservationAmount
+BEGIN
+    SET @RequestedAmount = @ReservationAmount;
+END
+
+INSERT INTO dbo.AfterSaleRequests
+(
+    ReservationId,
+    UserId,
+    RequestType,
+    Reason,
+    RequestedAmount,
+    EvidenceUrl,
+    Status,
+    CreatedAt
+)
+VALUES
+(
+    @ReservationId,
+    @UserId,
+    @RequestType,
+    @Reason,
+    NULLIF(@RequestedAmount, 0),
+    NULLIF(@EvidenceUrl, N''),
+    N'待处理',
+    GETDATE()
+);
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'AfterSale', SCOPE_IDENTITY(), N'提交售后', N'用户提交售后申请', @Reason, @UserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@ReservationId", reservationId);
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@RequestType", NormalizeAfterSaleType(requestType));
+                command.Parameters.AddWithValue("@Reason", (reason ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@RequestedAmount", requestedAmount);
+                command.Parameters.AddWithValue("@EvidenceUrl", (evidenceUrl ?? string.Empty).Trim());
+            }, "售后申请已提交，等待管理员处理。", out message);
+        }
+
+        public IList<AfterSaleRequestInfo> GetAfterSaleRequests(int top, string statusFilter = null, int? userId = null)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    a.Id,
+    a.ReservationId,
+    a.UserId,
+    a.RequestType,
+    a.Reason,
+    ISNULL(a.RequestedAmount, 0) AS RequestedAmount,
+    a.Status,
+    a.AdminReply,
+    a.AdminRemark,
+    a.EvidenceUrl,
+    a.RejectReason,
+    a.AppealReason,
+    a.RefundTransactionId,
+    ISNULL(a.RefundedAmount, 0) AS RefundedAmount,
+    a.CreatedAt,
+    a.AcceptedAt,
+    a.RejectedAt,
+    a.AppealedAt,
+    a.ProcessedAt,
+    r.ContactName,
+    r.Phone,
+    ISNULL(r.TotalAmount, r.UnitPrice * r.PlayerCount) AS ReservationAmount,
+    s.Name AS ScriptName,
+    rm.Name AS RoomName,
+    se.HostName,
+    se.SessionDateTime
+FROM dbo.AfterSaleRequests a
+INNER JOIN dbo.Reservations r ON r.Id = a.ReservationId
+INNER JOIN dbo.Sessions se ON se.Id = r.SessionId
+INNER JOIN dbo.Scripts s ON s.Id = se.ScriptId
+INNER JOIN dbo.Rooms rm ON rm.Id = se.RoomId
+WHERE (@StatusFilter IS NULL OR a.Status = @StatusFilter)
+  AND (@UserId IS NULL OR a.UserId = @UserId)
+ORDER BY
+    CASE WHEN a.Status IN (N'待处理', N'已受理', N'待复审') THEN 0 ELSE 1 END,
+    a.CreatedAt DESC,
+    a.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@StatusFilter", string.IsNullOrWhiteSpace(statusFilter) ? (object)DBNull.Value : statusFilter);
+                command.Parameters.AddWithValue("@UserId", (object)userId ?? DBNull.Value);
+            }, MapAfterSaleRequest);
+        }
+
+        public bool SubmitAfterSaleAppeal(int requestId, int userId, string appealReason, string evidenceUrl, out string message)
+        {
+            const string sql = @"
+IF NULLIF(@AppealReason, N'') IS NULL
+BEGIN
+    RAISERROR(N'请填写申诉原因后再提交复审。', 16, 1);
+    RETURN;
+END
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.AfterSaleRequests
+    WHERE Id = @RequestId
+      AND UserId = @UserId
+      AND Status = N'已驳回'
+)
+BEGIN
+    RAISERROR(N'当前售后单不支持再次申诉。', 16, 1);
+    RETURN;
+END
+
+UPDATE dbo.AfterSaleRequests
+SET
+    Status = N'待复审',
+    AppealReason = @AppealReason,
+    AppealedAt = GETDATE(),
+    EvidenceUrl = CASE WHEN NULLIF(@EvidenceUrl, N'') IS NULL THEN EvidenceUrl ELSE @EvidenceUrl END,
+    AdminReply = NULL,
+    ProcessedAt = NULL,
+    ProcessedByUserId = NULL
+WHERE Id = @RequestId;
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'AfterSale', @RequestId, N'提交申诉', N'用户发起二次申诉', @AppealReason, @UserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@RequestId", requestId);
+                command.Parameters.AddWithValue("@UserId", userId);
+                command.Parameters.AddWithValue("@AppealReason", (appealReason ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@EvidenceUrl", (evidenceUrl ?? string.Empty).Trim());
+            }, "申诉已提交，售后单已进入复审。", out message);
+        }
+
+        public bool ReviewAfterSaleRequest(int requestId, string status, string adminReply, string adminRemark, string rejectReason, int adminUserId, out string message)
+        {
+            const string sql = @"
+DECLARE @ReservationId INT;
+DECLARE @UserId INT;
+DECLARE @ReservationAmount DECIMAL(10,2);
+DECLARE @RequestedAmount DECIMAL(10,2);
+DECLARE @RefundAmount DECIMAL(10,2);
+DECLARE @ExistingRefundTransactionId INT;
+DECLARE @BalanceAfter DECIMAL(10,2);
+DECLARE @WalletTransactionId INT;
+DECLARE @CurrentStatus NVARCHAR(30);
+
+SELECT
+    @ReservationId = a.ReservationId,
+    @UserId = a.UserId,
+    @CurrentStatus = a.Status,
+    @RequestedAmount = ISNULL(a.RequestedAmount, 0),
+    @ExistingRefundTransactionId = a.RefundTransactionId,
+    @ReservationAmount = ISNULL(r.TotalAmount, r.UnitPrice * r.PlayerCount)
+FROM dbo.AfterSaleRequests a
+INNER JOIN dbo.Reservations r ON r.Id = a.ReservationId
+WHERE a.Id = @RequestId;
+
+IF @ReservationId IS NULL
+BEGIN
+    RAISERROR(N'未找到对应的售后申请。', 16, 1);
+    RETURN;
+END
+
+IF @Status = N'已驳回' AND NULLIF(@RejectReason, N'') IS NULL
+BEGIN
+    RAISERROR(N'驳回售后时请填写具体驳回原因。', 16, 1);
+    RETURN;
+END
+
+IF @Status = N'退款完成' AND @ExistingRefundTransactionId IS NULL
+BEGIN
+    SET @RefundAmount = CASE WHEN @RequestedAmount > 0 THEN @RequestedAmount ELSE @ReservationAmount END;
+    IF @RefundAmount > @ReservationAmount
+    BEGIN
+        SET @RefundAmount = @ReservationAmount;
+    END
+
+    IF @RefundAmount <= 0
+    BEGIN
+        RAISERROR(N'退款金额必须大于 0。', 16, 1);
+        RETURN;
+    END
+
+    UPDATE dbo.Users
+    SET Balance = Balance + @RefundAmount
+    WHERE Id = @UserId;
+
+    SELECT @BalanceAfter = Balance
+    FROM dbo.Users
+    WHERE Id = @UserId;
+
+    INSERT INTO dbo.WalletTransactions(UserId, TransactionType, Amount, BalanceAfter, Summary, CreatedAt)
+    VALUES(@UserId, N'预约退款', @RefundAmount, @BalanceAfter, N'预约售后退款', GETDATE());
+
+    SET @WalletTransactionId = SCOPE_IDENTITY();
+END
+
+UPDATE dbo.AfterSaleRequests
+SET Status = @Status,
+    AdminReply = NULLIF(@AdminReply, N''),
+    AdminRemark = NULLIF(@AdminRemark, N''),
+    RejectReason = CASE WHEN @Status = N'已驳回' THEN NULLIF(@RejectReason, N'') ELSE RejectReason END,
+    AcceptedAt = CASE
+        WHEN @Status IN (N'已受理', N'退款完成') AND AcceptedAt IS NULL THEN GETDATE()
+        ELSE AcceptedAt
+    END,
+    RejectedAt = CASE WHEN @Status = N'已驳回' THEN GETDATE() ELSE RejectedAt END,
+    ProcessedByUserId = @AdminUserId,
+    ProcessedAt = CASE
+        WHEN @Status IN (N'已驳回', N'退款完成', N'已关闭') THEN GETDATE()
+        WHEN @Status IN (N'已受理', N'待复审') THEN ProcessedAt
+        ELSE GETDATE()
+    END,
+    RefundTransactionId = CASE WHEN @WalletTransactionId IS NULL THEN RefundTransactionId ELSE @WalletTransactionId END,
+    RefundedAmount = CASE WHEN @WalletTransactionId IS NULL THEN RefundedAmount ELSE @RefundAmount END
+WHERE Id = @RequestId;
+
+IF @Status = N'退款完成'
+BEGIN
+    UPDATE dbo.Reservations
+    SET Status = CASE WHEN Status = N'已取消' THEN Status ELSE N'已取消' END,
+        PaymentStatus = N'已退款',
+        ProcessedAt = GETDATE(),
+        ProcessedByUserId = @AdminUserId
+    WHERE Id = @ReservationId;
+END
+
+IF NULLIF(@AdminReply, N'') IS NOT NULL
+BEGIN
+    INSERT INTO dbo.AdminReplyLogs(BusinessType, BusinessId, AdminUserId, ReplyContent, VisibleToUser, CreatedAt)
+    VALUES(N'AfterSale', @RequestId, @AdminUserId, @AdminReply, 1, GETDATE());
+END
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'AfterSale', @RequestId, @Status, N'管理员处理售后申请', @AdminRemark, @AdminUserId, GETDATE());";
+
+            using (var connection = DbHelper.CreateConnection())
+            using (var command = new SqlCommand(sql, connection))
+            {
+                command.Parameters.AddWithValue("@RequestId", requestId);
+                command.Parameters.AddWithValue("@Status", string.IsNullOrWhiteSpace(status) ? "已受理" : status.Trim());
+                command.Parameters.AddWithValue("@AdminReply", (object)adminReply ?? DBNull.Value);
+                command.Parameters.AddWithValue("@AdminRemark", (object)adminRemark ?? DBNull.Value);
+                command.Parameters.AddWithValue("@RejectReason", (object)rejectReason ?? DBNull.Value);
+                command.Parameters.AddWithValue("@AdminUserId", adminUserId);
+
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    command.Transaction = transaction;
+                    try
+                    {
+                        command.ExecuteNonQuery();
+                        transaction.Commit();
+                        message = "售后申请已处理。";
+                        return true;
+                    }
+                    catch (SqlException ex)
+                    {
+                        transaction.Rollback();
+                        message = ex.Message;
+                        return false;
+                    }
+                }
+            }
+        }
+
+        public bool CheckInReservationByCode(string checkInCode, int adminUserId, out string message)
+        {
+            const string sql = @"
+DECLARE @ReservationId INT;
+
+SELECT TOP 1 @ReservationId = Id
+FROM dbo.Reservations
+WHERE CheckInCode = @CheckInCode
+  AND Status IN (N'待确认', N'已确认', N'玩家已确认');
+
+IF @ReservationId IS NULL
+BEGIN
+    RAISERROR(N'核销码无效，或该订单已取消/已核销。', 16, 1);
+    RETURN;
+END
+
+UPDATE dbo.Reservations
+SET Status = N'已到店',
+    ConfirmStatus = CASE WHEN ConfirmStatus IS NULL OR ConfirmStatus = N'' THEN N'门店已核销' ELSE ConfirmStatus END,
+    CheckedInAt = GETDATE(),
+    CheckInByUserId = @AdminUserId,
+    ProcessedAt = GETDATE(),
+    ProcessedByUserId = @AdminUserId
+WHERE Id = @ReservationId;
+
+INSERT INTO dbo.AdminReplyLogs(BusinessType, BusinessId, AdminUserId, ReplyContent, VisibleToUser, CreatedAt)
+VALUES(N'Reservation', @ReservationId, @AdminUserId, N'门店已完成到店核销，请按现场 DM 引导进入房间。', 1, GETDATE());
+
+INSERT INTO dbo.BusinessActionLogs(BusinessType, BusinessId, ActionType, ActionTitle, ActionContent, OperatorUserId, CreatedAt)
+VALUES(N'Reservation', @ReservationId, N'到店核销', N'门店核销预约订单', N'核销码：' + @CheckInCode, @AdminUserId, GETDATE());";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@CheckInCode", (checkInCode ?? string.Empty).Trim());
+                command.Parameters.AddWithValue("@AdminUserId", adminUserId);
+            }, "到店核销成功，订单已登记为已到店。", out message);
+        }
+
+        public bool AddServiceMessage(string businessType, int businessId, int senderUserId, bool senderIsAdmin, string content, out string message)
+        {
+            const string sql = @"
+IF NULLIF(@Content, N'') IS NULL
+BEGIN
+    RAISERROR(N'消息内容不能为空。', 16, 1);
+    RETURN;
+END
+
+IF @SenderIsAdmin = 0 AND NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Reservations r
+    WHERE @BusinessType = N'Reservation'
+      AND r.Id = @BusinessId
+      AND r.UserId = @SenderUserId
+    UNION ALL
+    SELECT 1
+    FROM dbo.StoreVisitRequests s
+    WHERE @BusinessType = N'StoreVisit'
+      AND s.Id = @BusinessId
+      AND s.UserId = @SenderUserId
+    UNION ALL
+    SELECT 1
+    FROM dbo.AfterSaleRequests a
+    WHERE @BusinessType = N'AfterSale'
+      AND a.Id = @BusinessId
+      AND a.UserId = @SenderUserId
+)
+BEGIN
+    RAISERROR(N'你不能向不属于自己的业务单发送消息。', 16, 1);
+    RETURN;
+END
+
+INSERT INTO dbo.ServiceMessages
+(
+    BusinessType,
+    BusinessId,
+    SenderUserId,
+    SenderRole,
+    Content,
+    IsReadByAdmin,
+    IsReadByUser,
+    CreatedAt
+)
+VALUES
+(
+    @BusinessType,
+    @BusinessId,
+    @SenderUserId,
+    CASE WHEN @SenderIsAdmin = 1 THEN N'Admin' ELSE N'User' END,
+    @Content,
+    CASE WHEN @SenderIsAdmin = 1 THEN 1 ELSE 0 END,
+    CASE WHEN @SenderIsAdmin = 1 THEN 0 ELSE 1 END,
+    GETDATE()
+);
+
+IF @SenderIsAdmin = 1
+BEGIN
+    INSERT INTO dbo.AdminReplyLogs(BusinessType, BusinessId, AdminUserId, ReplyContent, VisibleToUser, CreatedAt)
+    VALUES(@BusinessType, @BusinessId, @SenderUserId, @Content, 1, GETDATE());
+END";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@BusinessType", NormalizeServiceBusinessType(businessType));
+                command.Parameters.AddWithValue("@BusinessId", businessId);
+                command.Parameters.AddWithValue("@SenderUserId", senderUserId);
+                command.Parameters.AddWithValue("@SenderIsAdmin", senderIsAdmin);
+                command.Parameters.AddWithValue("@Content", (content ?? string.Empty).Trim());
+            }, "消息已发送。", out message);
+        }
+
+        public IList<ServiceMessageInfo> GetServiceMessages(string businessType, int businessId, int currentUserId, bool isAdmin, int top)
+        {
+            const string sql = @"
+IF @IsAdmin = 0 AND NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Reservations r
+    WHERE @BusinessType = N'Reservation'
+      AND r.Id = @BusinessId
+      AND r.UserId = @CurrentUserId
+    UNION ALL
+    SELECT 1
+    FROM dbo.StoreVisitRequests s
+    WHERE @BusinessType = N'StoreVisit'
+      AND s.Id = @BusinessId
+      AND s.UserId = @CurrentUserId
+    UNION ALL
+    SELECT 1
+    FROM dbo.AfterSaleRequests a
+    WHERE @BusinessType = N'AfterSale'
+      AND a.Id = @BusinessId
+      AND a.UserId = @CurrentUserId
+)
+BEGIN
+    SELECT TOP 0
+        CAST(0 AS INT) AS Id,
+        CAST(N'' AS NVARCHAR(30)) AS BusinessType,
+        CAST(0 AS INT) AS BusinessId,
+        CAST(0 AS INT) AS SenderUserId,
+        CAST(N'' AS NVARCHAR(80)) AS SenderName,
+        CAST(N'' AS NVARCHAR(20)) AS SenderRole,
+        CAST(N'' AS NVARCHAR(800)) AS Content,
+        CAST(0 AS BIT) AS IsReadByAdmin,
+        CAST(0 AS BIT) AS IsReadByUser,
+        GETDATE() AS CreatedAt;
+    RETURN;
+END
+
+SELECT TOP (@Top)
+    m.Id,
+    m.BusinessType,
+    m.BusinessId,
+    m.SenderUserId,
+    ISNULL(u.DisplayName, N'系统') AS SenderName,
+    m.SenderRole,
+    m.Content,
+    m.IsReadByAdmin,
+    m.IsReadByUser,
+    m.CreatedAt
+FROM dbo.ServiceMessages m
+LEFT JOIN dbo.Users u ON u.Id = m.SenderUserId
+WHERE m.BusinessType = @BusinessType
+  AND m.BusinessId = @BusinessId
+ORDER BY m.CreatedAt ASC, m.Id ASC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@BusinessType", NormalizeServiceBusinessType(businessType));
+                command.Parameters.AddWithValue("@BusinessId", businessId);
+                command.Parameters.AddWithValue("@CurrentUserId", currentUserId);
+                command.Parameters.AddWithValue("@IsAdmin", isAdmin);
+            }, MapServiceMessage);
+        }
+
+        public bool MarkServiceMessagesAsRead(string businessType, int businessId, int currentUserId, bool isAdmin, out string message)
+        {
+            const string sql = @"
+IF @IsAdmin = 0 AND NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Reservations r
+    WHERE @BusinessType = N'Reservation'
+      AND r.Id = @BusinessId
+      AND r.UserId = @CurrentUserId
+    UNION ALL
+    SELECT 1
+    FROM dbo.StoreVisitRequests s
+    WHERE @BusinessType = N'StoreVisit'
+      AND s.Id = @BusinessId
+      AND s.UserId = @CurrentUserId
+    UNION ALL
+    SELECT 1
+    FROM dbo.AfterSaleRequests a
+    WHERE @BusinessType = N'AfterSale'
+      AND a.Id = @BusinessId
+      AND a.UserId = @CurrentUserId
+)
+BEGIN
+    RAISERROR(N'你不能操作不属于自己的业务单消息。', 16, 1);
+    RETURN;
+END
+
+UPDATE dbo.ServiceMessages
+SET
+    IsReadByAdmin = CASE WHEN @IsAdmin = 1 AND SenderRole = N'User' THEN 1 ELSE IsReadByAdmin END,
+    IsReadByUser = CASE WHEN @IsAdmin = 0 AND SenderRole = N'Admin' THEN 1 ELSE IsReadByUser END
+WHERE BusinessType = @BusinessType
+  AND BusinessId = @BusinessId;";
+
+            return ExecuteNonQuery(sql, command =>
+            {
+                command.Parameters.AddWithValue("@BusinessType", NormalizeServiceBusinessType(businessType));
+                command.Parameters.AddWithValue("@BusinessId", businessId);
+                command.Parameters.AddWithValue("@CurrentUserId", currentUserId);
+                command.Parameters.AddWithValue("@IsAdmin", isAdmin);
+            }, "消息状态已更新。", out message);
+        }
+
+        public IList<ServiceMessageInfo> GetRecentServiceMessagesForAdmin(int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    m.Id,
+    m.BusinessType,
+    m.BusinessId,
+    m.SenderUserId,
+    ISNULL(u.DisplayName, N'系统') AS SenderName,
+    m.SenderRole,
+    m.Content,
+    m.IsReadByAdmin,
+    m.IsReadByUser,
+    m.CreatedAt
+FROM dbo.ServiceMessages m
+LEFT JOIN dbo.Users u ON u.Id = m.SenderUserId
+ORDER BY
+    CASE WHEN m.SenderRole = N'User' AND m.IsReadByAdmin = 0 THEN 0 ELSE 1 END,
+    m.CreatedAt DESC,
+    m.Id DESC;";
+
+            return ExecuteList(sql, command => command.Parameters.AddWithValue("@Top", top), MapServiceMessage);
+        }
+
         public IList<AdminReplyLogInfo> GetRecentAdminReplyLogs(int top, string businessType = null, int? businessId = null)
         {
             const string sql = @"
@@ -1342,6 +2770,329 @@ ORDER BY l.CreatedAt DESC, l.Id DESC;";
                 VisibleToUser = GetBoolean(reader, "VisibleToUser"),
                 CreatedAt = GetDateTime(reader, "CreatedAt")
             });
+        }
+
+        public IList<AdminReplyLogInfo> GetUserVisibleReplyLogs(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    l.Id,
+    l.BusinessType,
+    l.BusinessId,
+    l.AdminUserId,
+    ISNULL(u.DisplayName, N'门店管理员') AS AdminName,
+    l.ReplyContent,
+    l.VisibleToUser,
+    l.CreatedAt
+FROM dbo.AdminReplyLogs l
+LEFT JOIN dbo.Users u ON u.Id = l.AdminUserId
+WHERE l.VisibleToUser = 1
+  AND
+  (
+      (l.BusinessType = N'Reservation' AND EXISTS
+      (
+          SELECT 1
+          FROM dbo.Reservations r
+          WHERE r.Id = l.BusinessId
+            AND r.UserId = @UserId
+      ))
+      OR
+      (l.BusinessType = N'StoreVisit' AND EXISTS
+      (
+          SELECT 1
+          FROM dbo.StoreVisitRequests s
+          WHERE s.Id = l.BusinessId
+            AND s.UserId = @UserId
+      ))
+      OR
+      (l.BusinessType = N'AfterSale' AND EXISTS
+      (
+          SELECT 1
+          FROM dbo.AfterSaleRequests a
+          WHERE a.Id = l.BusinessId
+            AND a.UserId = @UserId
+      ))
+  )
+ORDER BY l.CreatedAt DESC, l.Id DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+            }, reader => new AdminReplyLogInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                BusinessType = GetString(reader, "BusinessType"),
+                BusinessId = GetInt32(reader, "BusinessId"),
+                AdminUserId = GetNullableInt32(reader, "AdminUserId"),
+                AdminName = GetString(reader, "AdminName"),
+                ReplyContent = GetString(reader, "ReplyContent"),
+                VisibleToUser = GetBoolean(reader, "VisibleToUser"),
+                CreatedAt = GetDateTime(reader, "CreatedAt")
+            });
+        }
+
+        public IList<UserNotificationInfo> GetUserNotifications(int userId, int top)
+        {
+            const string sql = @"
+SELECT TOP (@Top)
+    n.NotificationKey,
+    Category,
+    Title,
+    Content,
+    TargetUrl,
+    CAST(CASE WHEN readLog.Id IS NULL THEN 0 ELSE 1 END AS BIT) AS IsRead,
+    CreatedAt
+FROM
+(
+    SELECT
+        N'reply:' + l.BusinessType + N':' + CONVERT(NVARCHAR(20), l.BusinessId) + N':' + CONVERT(NVARCHAR(20), l.Id) AS NotificationKey,
+        N'订单回复' AS Category,
+        CASE l.BusinessType
+            WHEN N'Reservation' THEN N'预约订单有新回复'
+            WHEN N'StoreVisit' THEN N'到店联系单有新回复'
+            WHEN N'AfterSale' THEN N'售后申请有新回复'
+            ELSE N'门店有新回复'
+        END AS Title,
+        l.ReplyContent AS Content,
+        N'PlayerHub.aspx?tab=orders' AS TargetUrl,
+        l.CreatedAt
+    FROM dbo.AdminReplyLogs l
+    WHERE l.VisibleToUser = 1
+      AND
+      (
+          (l.BusinessType = N'Reservation' AND EXISTS
+          (
+              SELECT 1 FROM dbo.Reservations r
+              WHERE r.Id = l.BusinessId AND r.UserId = @UserId
+          ))
+          OR
+          (l.BusinessType = N'StoreVisit' AND EXISTS
+          (
+              SELECT 1 FROM dbo.StoreVisitRequests s
+              WHERE s.Id = l.BusinessId AND s.UserId = @UserId
+          ))
+          OR
+          (l.BusinessType = N'AfterSale' AND EXISTS
+          (
+              SELECT 1 FROM dbo.AfterSaleRequests a
+              WHERE a.Id = l.BusinessId AND a.UserId = @UserId
+          ))
+      )
+
+    UNION ALL
+
+    SELECT
+        N'service:' + m.BusinessType + N':' + CONVERT(NVARCHAR(20), m.BusinessId) + N':' + CONVERT(NVARCHAR(20), m.Id),
+        N'客服会话',
+        N'门店客服回复了你',
+        m.Content,
+        N'PlayerHub.aspx?tab=orders',
+        m.CreatedAt
+    FROM dbo.ServiceMessages m
+    WHERE m.SenderRole = N'Admin'
+      AND
+      (
+          (m.BusinessType = N'Reservation' AND EXISTS
+          (
+              SELECT 1 FROM dbo.Reservations r
+              WHERE r.Id = m.BusinessId AND r.UserId = @UserId
+          ))
+          OR
+          (m.BusinessType = N'StoreVisit' AND EXISTS
+          (
+              SELECT 1 FROM dbo.StoreVisitRequests s
+              WHERE s.Id = m.BusinessId AND s.UserId = @UserId
+          ))
+          OR
+          (m.BusinessType = N'AfterSale' AND EXISTS
+          (
+              SELECT 1 FROM dbo.AfterSaleRequests a
+              WHERE a.Id = m.BusinessId AND a.UserId = @UserId
+          ))
+      )
+
+    UNION ALL
+
+    SELECT
+        N'coupon:' + CONVERT(NVARCHAR(20), c.Id),
+        N'优惠券',
+        N'你收到一张优惠券',
+        c.Title + N'，可抵扣 ¥' + CONVERT(NVARCHAR(30), CONVERT(DECIMAL(10,2), c.DiscountAmount)),
+        N'Booking.aspx',
+        c.IssuedAt
+    FROM dbo.UserCoupons c
+    WHERE c.UserId = @UserId
+
+    UNION ALL
+
+    SELECT
+        N'reminder-day:' + CONVERT(NVARCHAR(20), rv.Id) + N':' + CONVERT(NVARCHAR(16), s.SessionDateTime, 120),
+        N'到店提醒',
+        N'明日开场提醒：' + sc.Name,
+        N'请提前确认人数与出发时间。开场 ' + CONVERT(NVARCHAR(16), s.SessionDateTime, 120) + N'，房间 ' + r.Name + N'，核销码 ' + ISNULL(rv.CheckInCode, N'待生成'),
+        N'OrderDetails.aspx?reservationId=' + CONVERT(NVARCHAR(20), rv.Id),
+        DATEADD(HOUR, -24, s.SessionDateTime)
+    FROM dbo.Reservations rv
+    INNER JOIN dbo.Sessions s ON s.Id = rv.SessionId
+    INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+    INNER JOIN dbo.Rooms r ON r.Id = s.RoomId
+    WHERE rv.UserId = @UserId
+      AND s.SessionDateTime >= DATEADD(HOUR, 24, GETDATE())
+      AND s.SessionDateTime < DATEADD(HOUR, 48, GETDATE())
+      AND rv.Status IN (N'待确认', N'已确认', N'玩家已确认', N'申请改期')
+
+    UNION ALL
+
+    SELECT
+        N'reminder-go:' + CONVERT(NVARCHAR(20), rv.Id) + N':' + CONVERT(NVARCHAR(16), s.SessionDateTime, 120),
+        N'到店提醒',
+        N'出发提醒：' + sc.Name,
+        N'距离开场不足 2 小时。请携带核销码 ' + ISNULL(rv.CheckInCode, N'待生成') + N'，按时前往 ' + r.Name,
+        N'CheckInPass.aspx?reservationId=' + CONVERT(NVARCHAR(20), rv.Id),
+        DATEADD(HOUR, -2, s.SessionDateTime)
+    FROM dbo.Reservations rv
+    INNER JOIN dbo.Sessions s ON s.Id = rv.SessionId
+    INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+    INNER JOIN dbo.Rooms r ON r.Id = s.RoomId
+    WHERE rv.UserId = @UserId
+      AND s.SessionDateTime >= GETDATE()
+      AND s.SessionDateTime < DATEADD(HOUR, 2, GETDATE())
+      AND rv.Status IN (N'待确认', N'已确认', N'玩家已确认', N'申请改期')
+
+    UNION ALL
+
+    SELECT
+        N'reminder-door:' + CONVERT(NVARCHAR(20), rv.Id) + N':' + CONVERT(NVARCHAR(16), s.SessionDateTime, 120),
+        N'到店提醒',
+        N'即将开始：' + sc.Name,
+        N'开场时间 ' + CONVERT(NVARCHAR(16), s.SessionDateTime, 120) + N'，房间 ' + r.Name + N'，核销码 ' + ISNULL(rv.CheckInCode, N'待生成'),
+        N'CheckInPass.aspx?reservationId=' + CONVERT(NVARCHAR(20), rv.Id),
+        DATEADD(MINUTE, -30, s.SessionDateTime)
+    FROM dbo.Reservations rv
+    INNER JOIN dbo.Sessions s ON s.Id = rv.SessionId
+    INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+    INNER JOIN dbo.Rooms r ON r.Id = s.RoomId
+    WHERE rv.UserId = @UserId
+      AND s.SessionDateTime >= GETDATE()
+      AND s.SessionDateTime < DATEADD(HOUR, 1, GETDATE())
+      AND rv.Status IN (N'待确认', N'已确认', N'玩家已确认', N'申请改期')
+
+    UNION ALL
+
+    SELECT
+        N'late:' + CONVERT(NVARCHAR(20), rv.Id) + N':' + CONVERT(NVARCHAR(16), s.SessionDateTime, 120),
+        N'迟到提醒',
+        N'你已接近迟到：' + sc.Name,
+        N'当前已超过开场 15 分钟仍未核销，请尽快联系门店或通过订单会话说明情况。',
+        N'OrderConversation.aspx?reservationId=' + CONVERT(NVARCHAR(20), rv.Id),
+        DATEADD(MINUTE, 15, s.SessionDateTime)
+    FROM dbo.Reservations rv
+    INNER JOIN dbo.Sessions s ON s.Id = rv.SessionId
+    INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+    WHERE rv.UserId = @UserId
+      AND rv.CheckedInAt IS NULL
+      AND s.SessionDateTime < DATEADD(MINUTE, -15, GETDATE())
+      AND s.SessionDateTime >= DATEADD(HOUR, -3, GETDATE())
+      AND rv.Status IN (N'待确认', N'已确认', N'玩家已确认', N'申请改期')
+
+    UNION ALL
+
+    SELECT
+        N'waitlist-open:' + CONVERT(NVARCHAR(20), w.Id) + N':' + CONVERT(NVARCHAR(10), seatStat.RemainingSeats),
+        N'补位通知',
+        N'候补场次已腾出名额',
+        N'你候补的《' + sc.Name + N'》当前腾出 ' + CONVERT(NVARCHAR(10), seatStat.RemainingSeats) + N' 个名额，可优先回到预约页抢位。',
+        N'Booking.aspx?sessionId=' + CONVERT(NVARCHAR(20), w.SessionId),
+        GETDATE()
+    FROM dbo.ReservationWaitlists w
+    INNER JOIN dbo.Sessions s ON s.Id = w.SessionId
+    INNER JOIN dbo.Scripts sc ON sc.Id = s.ScriptId
+    OUTER APPLY
+    (
+        SELECT s.MaxPlayers - ISNULL(SUM(CASE WHEN r.Status IN (N'待确认', N'已确认', N'申请改期', N'玩家已确认', N'已到店') THEN r.PlayerCount ELSE 0 END), 0) AS RemainingSeats
+        FROM dbo.Reservations r
+        WHERE r.SessionId = s.Id
+    ) seatStat
+    WHERE w.UserId = @UserId
+      AND w.Status = N'Pending'
+      AND s.Status = N'开放预约'
+      AND s.SessionDateTime >= GETDATE()
+      AND seatStat.RemainingSeats >= w.PlayerCount
+
+    UNION ALL
+
+    SELECT
+        N'aftersale:' + CONVERT(NVARCHAR(20), a.Id) + N':' + a.Status,
+        N'售后进度',
+        N'售后申请状态更新',
+        a.RequestType + N'：' + a.Status,
+        N'PlayerHub.aspx?tab=orders',
+        ISNULL(a.ProcessedAt, a.CreatedAt)
+    FROM dbo.AfterSaleRequests a
+    WHERE a.UserId = @UserId
+) n
+LEFT JOIN dbo.UserNotificationReads readLog
+    ON readLog.UserId = @UserId
+   AND readLog.NotificationKey = n.NotificationKey
+ORDER BY CreatedAt DESC;";
+
+            return ExecuteList(sql, command =>
+            {
+                command.Parameters.AddWithValue("@Top", top);
+                command.Parameters.AddWithValue("@UserId", userId);
+            }, reader => new UserNotificationInfo
+            {
+                NotificationKey = GetString(reader, "NotificationKey"),
+                Category = GetString(reader, "Category"),
+                Title = GetString(reader, "Title"),
+                Content = GetString(reader, "Content"),
+                TargetUrl = GetString(reader, "TargetUrl"),
+                IsRead = GetBoolean(reader, "IsRead"),
+                CreatedAt = GetDateTime(reader, "CreatedAt")
+            });
+        }
+
+        public int GetUnreadNotificationCount(int userId, int top = 80)
+        {
+            var notifications = GetUserNotifications(userId, top);
+            return notifications.Count(item => !item.IsRead);
+        }
+
+        public void MarkNotificationsAsRead(int userId, IList<string> notificationKeys)
+        {
+            if (userId <= 0 || notificationKeys == null || notificationKeys.Count == 0)
+            {
+                return;
+            }
+
+            using (var connection = DbHelper.CreateConnection())
+            {
+                connection.Open();
+                foreach (var key in notificationKeys)
+                {
+                    if (string.IsNullOrWhiteSpace(key))
+                    {
+                        continue;
+                    }
+
+                    using (var command = new SqlCommand(@"
+IF NOT EXISTS
+(
+    SELECT 1 FROM dbo.UserNotificationReads
+    WHERE UserId = @UserId AND NotificationKey = @NotificationKey
+)
+BEGIN
+    INSERT INTO dbo.UserNotificationReads(UserId, NotificationKey, ReadAt)
+    VALUES(@UserId, @NotificationKey, GETDATE());
+END;", connection))
+                    {
+                        command.Parameters.AddWithValue("@UserId", userId);
+                        command.Parameters.AddWithValue("@NotificationKey", key.Trim());
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
         }
 
         public IList<BusinessActionLogInfo> GetRecentBusinessActionLogs(int top, string businessType = null, int? businessId = null)
@@ -1925,6 +3676,9 @@ DELETE FROM dbo.Scripts WHERE Id = @ScriptId;";
                 RoomName = GetString(reader, "RoomName"),
                 SessionDateTime = GetDateTime(reader, "SessionDateTime"),
                 HostName = GetString(reader, "HostName"),
+                HostUserId = GetNullableInt32(reader, "HostUserId"),
+                HostBriefing = GetString(reader, "HostBriefing"),
+                HostAcceptedAt = GetNullableDateTime(reader, "HostAcceptedAt"),
                 BasePrice = GetDecimal(reader, "BasePrice"),
                 MaxPlayers = GetInt32(reader, "MaxPlayers"),
                 ReservedPlayers = GetInt32(reader, "ReservedPlayers"),
@@ -1979,7 +3733,12 @@ DELETE FROM dbo.Scripts WHERE Id = @ScriptId;";
                 PlayerCount = GetInt32(reader, "PlayerCount"),
                 UnitPrice = GetDecimal(reader, "UnitPrice"),
                 TotalAmount = GetDecimal(reader, "TotalAmount"),
+                CouponId = GetNullableInt32(reader, "CouponId"),
+                DiscountAmount = GetDecimal(reader, "DiscountAmount"),
+                CouponTitle = GetString(reader, "CouponTitle"),
                 PaymentStatus = GetString(reader, "PaymentStatus"),
+                CheckInCode = GetString(reader, "CheckInCode"),
+                CheckedInAt = GetNullableDateTime(reader, "CheckedInAt"),
                 Remark = GetString(reader, "Remark"),
                 AdminRemark = GetString(reader, "AdminRemark"),
                 AdminReply = GetString(reader, "AdminReply"),
@@ -1992,6 +3751,168 @@ DELETE FROM dbo.Scripts WHERE Id = @ScriptId;";
                 RepliedAt = GetNullableDateTime(reader, "RepliedAt"),
                 PlayerConfirmedAt = GetNullableDateTime(reader, "PlayerConfirmedAt")
             };
+        }
+
+        private static ReservationInfo MapUserReservationInfo(SqlDataReader reader)
+        {
+            var item = MapAdminReservationInfo(reader);
+            item.ScriptId = GetInt32(reader, "ScriptId");
+            item.LatestAfterSaleId = GetNullableInt32(reader, "LatestAfterSaleId");
+            item.LatestAfterSaleType = GetString(reader, "LatestAfterSaleType");
+            item.LatestAfterSaleStatus = GetString(reader, "LatestAfterSaleStatus");
+            item.LatestAfterSaleCreatedAt = GetNullableDateTime(reader, "LatestAfterSaleCreatedAt");
+            return item;
+        }
+
+        private static ReservationWaitlistInfo MapReservationWaitlistInfo(SqlDataReader reader)
+        {
+            var phone = GetString(reader, "Phone");
+            var remainingSeats = GetInt32(reader, "RemainingSeats");
+            var playerCount = GetInt32(reader, "PlayerCount");
+
+            return new ReservationWaitlistInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                SessionId = GetInt32(reader, "SessionId"),
+                UserId = GetInt32(reader, "UserId"),
+                ContactName = GetString(reader, "ContactName"),
+                PhoneMasked = MaskPhone(phone),
+                ScriptName = GetString(reader, "ScriptName"),
+                RoomName = GetString(reader, "RoomName"),
+                HostName = GetString(reader, "HostName"),
+                SessionDateTime = GetDateTime(reader, "SessionDateTime"),
+                PlayerCount = playerCount,
+                Note = GetString(reader, "Note"),
+                Status = GetString(reader, "Status"),
+                RemainingSeats = remainingSeats,
+                CanBookNow = remainingSeats >= playerCount,
+                CreatedAt = GetDateTime(reader, "CreatedAt")
+            };
+        }
+
+        private static CouponInfo MapCoupon(SqlDataReader reader)
+        {
+            return new CouponInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                UserId = GetInt32(reader, "UserId"),
+                UserDisplayName = GetString(reader, "UserDisplayName"),
+                Username = GetString(reader, "Username"),
+                Title = GetString(reader, "Title"),
+                CouponType = GetString(reader, "CouponType"),
+                DiscountAmount = GetDecimal(reader, "DiscountAmount"),
+                MinSpend = GetDecimal(reader, "MinSpend"),
+                Status = GetString(reader, "Status"),
+                Source = GetString(reader, "Source"),
+                IssuedAt = GetDateTime(reader, "IssuedAt"),
+                ValidFrom = GetDateTime(reader, "ValidFrom"),
+                ValidUntil = GetDateTime(reader, "ValidUntil"),
+                UsedReservationId = GetNullableInt32(reader, "UsedReservationId"),
+                UsedAt = GetNullableDateTime(reader, "UsedAt")
+            };
+        }
+
+        private static ReviewInfo MapReview(SqlDataReader reader)
+        {
+            return new ReviewInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                ScriptId = GetInt32(reader, "ScriptId"),
+                ScriptName = GetString(reader, "ScriptName"),
+                ReviewerName = GetString(reader, "ReviewerName"),
+                Rating = GetInt32(reader, "Rating"),
+                Content = GetString(reader, "Content"),
+                ReviewDate = GetDateTime(reader, "ReviewDate"),
+                HighlightTag = GetString(reader, "HighlightTag"),
+                UserId = GetNullableInt32(reader, "UserId"),
+                ReservationId = GetNullableInt32(reader, "ReservationId"),
+                RoomName = GetString(reader, "RoomName"),
+                SessionDateTime = GetNullableDateTime(reader, "SessionDateTime"),
+                ReservationAmount = GetDecimal(reader, "ReservationAmount"),
+                ReservationStatus = GetString(reader, "ReservationStatus"),
+                IsFeatured = GetBoolean(reader, "IsFeatured"),
+                IsHidden = GetBoolean(reader, "IsHidden"),
+                AdminReply = GetString(reader, "AdminReply")
+            };
+        }
+
+        private static ServiceMessageInfo MapServiceMessage(SqlDataReader reader)
+        {
+            return new ServiceMessageInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                BusinessType = GetString(reader, "BusinessType"),
+                BusinessId = GetInt32(reader, "BusinessId"),
+                SenderUserId = GetInt32(reader, "SenderUserId"),
+                SenderName = GetString(reader, "SenderName"),
+                SenderRole = GetString(reader, "SenderRole"),
+                Content = GetString(reader, "Content"),
+                IsReadByAdmin = GetBoolean(reader, "IsReadByAdmin"),
+                IsReadByUser = GetBoolean(reader, "IsReadByUser"),
+                CreatedAt = GetDateTime(reader, "CreatedAt")
+            };
+        }
+
+        private static AfterSaleRequestInfo MapAfterSaleRequest(SqlDataReader reader)
+        {
+            var phone = GetString(reader, "Phone");
+
+            return new AfterSaleRequestInfo
+            {
+                Id = GetInt32(reader, "Id"),
+                ReservationId = GetInt32(reader, "ReservationId"),
+                UserId = GetInt32(reader, "UserId"),
+                ContactName = GetString(reader, "ContactName"),
+                PhoneMasked = MaskPhone(phone),
+                ScriptName = GetString(reader, "ScriptName"),
+                RoomName = GetString(reader, "RoomName"),
+                HostName = GetString(reader, "HostName"),
+                SessionDateTime = GetDateTime(reader, "SessionDateTime"),
+                ReservationAmount = GetDecimal(reader, "ReservationAmount"),
+                RequestType = GetString(reader, "RequestType"),
+                Reason = GetString(reader, "Reason"),
+                RequestedAmount = GetDecimal(reader, "RequestedAmount"),
+                Status = GetString(reader, "Status"),
+                AdminReply = GetString(reader, "AdminReply"),
+                AdminRemark = GetString(reader, "AdminRemark"),
+                EvidenceUrl = GetString(reader, "EvidenceUrl"),
+                RejectReason = GetString(reader, "RejectReason"),
+                AppealReason = GetString(reader, "AppealReason"),
+                RefundTransactionId = GetNullableInt32(reader, "RefundTransactionId"),
+                RefundedAmount = GetDecimal(reader, "RefundedAmount"),
+                CreatedAt = GetDateTime(reader, "CreatedAt"),
+                AcceptedAt = GetNullableDateTime(reader, "AcceptedAt"),
+                RejectedAt = GetNullableDateTime(reader, "RejectedAt"),
+                AppealedAt = GetNullableDateTime(reader, "AppealedAt"),
+                ProcessedAt = GetNullableDateTime(reader, "ProcessedAt")
+            };
+        }
+
+        private static string NormalizeAfterSaleType(string requestType)
+        {
+            switch ((requestType ?? string.Empty).Trim())
+            {
+                case "退款申请":
+                case "改期协商":
+                case "体验投诉":
+                case "其他售后":
+                    return requestType.Trim();
+                default:
+                    return "其他售后";
+            }
+        }
+
+        private static string NormalizeServiceBusinessType(string businessType)
+        {
+            switch ((businessType ?? string.Empty).Trim())
+            {
+                case "Reservation":
+                case "StoreVisit":
+                case "AfterSale":
+                    return businessType.Trim();
+                default:
+                    return "Reservation";
+            }
         }
 
         private static string GetString(SqlDataReader reader, string columnName)

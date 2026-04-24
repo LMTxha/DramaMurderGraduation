@@ -58,6 +58,8 @@ namespace DramaMurderGraduation.Web
             lnkLobby.NavigateUrl = "GameLobby.aspx?reservationId=" + reservation.Id;
             lnkConversation.NavigateUrl = "OrderConversation.aspx?reservationId=" + reservation.Id;
             lnkConversationInline.NavigateUrl = "OrderConversation.aspx?reservationId=" + reservation.Id;
+            lnkCheckInPass.NavigateUrl = "CheckInPass.aspx?reservationId=" + reservation.Id;
+            lnkCheckInPassInline.NavigateUrl = "CheckInPass.aspx?reservationId=" + reservation.Id;
             litContactName.Text = Server.HtmlEncode(reservation.ContactName);
             litPhoneMasked.Text = Server.HtmlEncode(reservation.PhoneMasked);
             litPlayerCount.Text = reservation.PlayerCount.ToString();

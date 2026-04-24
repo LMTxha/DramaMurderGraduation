@@ -87,6 +87,13 @@
     <Compile Include="Booking.aspx.designer.cs">
       <DependentUpon>Booking.aspx</DependentUpon>
     </Compile>
+    <Compile Include="CheckInPass.aspx.cs">
+      <DependentUpon>CheckInPass.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="CheckInPass.aspx.designer.cs">
+      <DependentUpon>CheckInPass.aspx</DependentUpon>
+    </Compile>
     <Compile Include="CharacterDossier.aspx.cs">
       <DependentUpon>CharacterDossier.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -267,6 +274,7 @@
     <Compile Include="Models\RechargeRequestInfo.cs" />
     <Compile Include="Models\RecommendationInfo.cs" />
     <Compile Include="Models\ReservationInfo.cs" />
+    <Compile Include="Models\ReservationWaitlistInfo.cs" />
     <Compile Include="Models\ReviewInfo.cs" />
     <Compile Include="Models\RoomMessageInfo.cs" />
     <Compile Include="Models\RoomParticipantInfo.cs" />
@@ -400,6 +408,7 @@
     <Content Include="NotificationCenter.aspx" />
     <Content Include="OrderConversation.aspx" />
     <Content Include="OrderDetails.aspx" />
+    <Content Include="CheckInPass.aspx" />
     <Content Include="PlayerHub.aspx" />
     <Content Include="Register.aspx" />
     <Content Include="Reviews.aspx" />

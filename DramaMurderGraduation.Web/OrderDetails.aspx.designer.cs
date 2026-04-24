@@ -12,6 +12,7 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litHostName;
         protected global::System.Web.UI.WebControls.HyperLink lnkLobby;
         protected global::System.Web.UI.WebControls.HyperLink lnkConversation;
+        protected global::System.Web.UI.WebControls.HyperLink lnkCheckInPass;
         protected global::System.Web.UI.WebControls.Literal litContactName;
         protected global::System.Web.UI.WebControls.Literal litPhoneMasked;
         protected global::System.Web.UI.WebControls.Literal litPlayerCount;
@@ -20,6 +21,7 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litDiscountSummary;
         protected global::System.Web.UI.WebControls.Literal litCheckInCode;
         protected global::System.Web.UI.WebControls.Literal litAdminReply;
+        protected global::System.Web.UI.WebControls.HyperLink lnkCheckInPassInline;
         protected global::System.Web.UI.WebControls.Repeater rptTimeline;
         protected global::System.Web.UI.WebControls.Literal litUserRemark;
         protected global::System.Web.UI.WebControls.Literal litAdminRemark;

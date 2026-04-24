@@ -1,5 +1,23 @@
 ﻿SET NOCOUNT ON;
 
+IF OBJECT_ID(N'dbo.SchemaMigrations', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SchemaMigrations
+    (
+        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        MigrationKey NVARCHAR(120) NOT NULL,
+        Description NVARCHAR(200) NULL,
+        ScriptChecksum NVARCHAR(64) NOT NULL,
+        StartedAt DATETIME NOT NULL CONSTRAINT DF_SchemaMigrations_StartedAt DEFAULT(GETDATE()),
+        CompletedAt DATETIME NULL,
+        Succeeded BIT NOT NULL CONSTRAINT DF_SchemaMigrations_Succeeded DEFAULT(0),
+        ErrorMessage NVARCHAR(MAX) NULL,
+        UpdatedAt DATETIME NOT NULL CONSTRAINT DF_SchemaMigrations_UpdatedAt DEFAULT(GETDATE())
+    );
+
+    CREATE UNIQUE INDEX UX_SchemaMigrations_MigrationKey ON dbo.SchemaMigrations(MigrationKey);
+END
+GO
 IF OBJECT_ID(N'dbo.Genres', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Genres
@@ -736,6 +754,37 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Reservations_Wal
 BEGIN
     ALTER TABLE dbo.Reservations
     ADD CONSTRAINT FK_Reservations_WalletTransactions FOREIGN KEY (PaymentTransactionId) REFERENCES dbo.WalletTransactions(Id);
+END
+GO
+
+IF OBJECT_ID(N'dbo.ReservationWaitlists', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ReservationWaitlists
+    (
+        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        SessionId INT NOT NULL,
+        UserId INT NOT NULL,
+        ContactName NVARCHAR(50) NOT NULL,
+        Phone NVARCHAR(30) NOT NULL,
+        PlayerCount INT NOT NULL,
+        Note NVARCHAR(300) NULL,
+        Status NVARCHAR(20) NOT NULL CONSTRAINT DF_ReservationWaitlists_Status DEFAULT(N'Pending'),
+        CreatedAt DATETIME NOT NULL CONSTRAINT DF_ReservationWaitlists_CreatedAt DEFAULT(GETDATE()),
+        CONSTRAINT FK_ReservationWaitlists_Sessions FOREIGN KEY (SessionId) REFERENCES dbo.Sessions(Id),
+        CONSTRAINT FK_ReservationWaitlists_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id)
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ReservationWaitlists_UserStatus' AND object_id = OBJECT_ID(N'dbo.ReservationWaitlists'))
+BEGIN
+    CREATE INDEX IX_ReservationWaitlists_UserStatus ON dbo.ReservationWaitlists(UserId, Status, CreatedAt DESC);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ReservationWaitlists_SessionStatus' AND object_id = OBJECT_ID(N'dbo.ReservationWaitlists'))
+BEGIN
+    CREATE INDEX IX_ReservationWaitlists_SessionStatus ON dbo.ReservationWaitlists(SessionId, Status, CreatedAt DESC);
 END
 GO
 
@@ -4226,3 +4275,4 @@ BEGIN
     (9, (SELECT Id FROM dbo.GameStages WHERE StageKey = N'ending'), N'毒茶与旧案的交点', N'真正的关键不是密室，而是延时投毒与旧案掩盖。', N'许青禾掌握死者作息、能接触保温壶，也终于确认哥哥许明之死与顾远山有关，因此选择在今晚完成复仇。', N'复盘', 1, 6);
 END
 GO
+
