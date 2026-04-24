@@ -80,8 +80,8 @@
                             <a href="SecurityCenter.aspx">安全中心</a>
                         </asp:PlaceHolder>
                         <asp:PlaceHolder ID="phAdmin" runat="server" Visible="false">
-                            <a href="Analytics.aspx">数据分析</a>
-                            <a href="AdminReview.aspx">后台审核</a>
+                            <asp:HyperLink ID="lnkAnalyticsNav" runat="server" NavigateUrl="Analytics.aspx" Text="数据分析" />
+                            <asp:HyperLink ID="lnkAdminReviewNav" runat="server" NavigateUrl="AdminReview.aspx" Text="后台审核" />
                         </asp:PlaceHolder>
                         <asp:PlaceHolder ID="phDm" runat="server" Visible="false">
                             <a href="DmDashboard.aspx">DM 主持台</a>
