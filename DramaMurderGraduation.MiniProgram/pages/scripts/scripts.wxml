@@ -1,19 +1,33 @@
 <view class="page">
-  <input class="input" placeholder="搜索剧本、作者或关键词" value="{{keyword}}" bindinput="onKeyword" confirm-type="search" bindconfirm="loadScripts" />
-  <view class="genre-bar">
-    <view class="genre {{!genreId ? 'active' : ''}}" bindtap="clearGenre">全部</view>
-    <view wx:for="{{genres}}" wx:key="Id" class="genre {{genreId === item.Id ? 'active' : ''}}" data-id="{{item.Id}}" bindtap="pickGenre">{{item.Name}}</view>
+  <view class="search card">
+    <input class="search-input" placeholder="搜索剧本名、作者、题材" value="{{keyword}}" confirm-type="search" bindinput="onKeyword" bindconfirm="search" />
+    <button class="search-btn" bindtap="search">搜索</button>
   </view>
 
-  <view wx:for="{{scripts}}" wx:key="Id" class="card script-card" data-id="{{item.Id}}" bindtap="openDetail">
-    <image class="cover" mode="aspectFill" src="{{item.CoverImage || '/assets/cover-placeholder.png'}}"></image>
-    <view class="script-body">
-      <view class="script-title">{{item.Name}}</view>
-      <view class="muted">{{item.GenreName}} · {{item.PlayerMin}}-{{item.PlayerMax}}人 · {{item.DurationMinutes}}分钟</view>
-      <view class="summary">{{item.Slogan || item.StoryBackground}}</view>
-      <view class="bottom">
-        <text>￥{{item.Price}}</text>
-        <text>{{item.AverageRating}}分</text>
+  <scroll-view scroll-x class="genre-scroll">
+    <view class="genre-track">
+      <view class="genre {{!genreId ? 'active' : ''}}" data-id="" bindtap="pickGenre">全部</view>
+      <view wx:for="{{genres}}" wx:key="Id" class="genre {{genreId == item.Id ? 'active' : ''}}" data-id="{{item.Id}}" bindtap="pickGenre">{{item.Name}}</view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{loading}}" class="loading">正在整理剧本库...</view>
+  <view wx:elif="{{!scripts.length}}" class="empty card">没有找到匹配的剧本</view>
+  <view wx:else class="list">
+    <view wx:for="{{scripts}}" wx:key="Id" class="script card" data-id="{{item.Id}}" bindtap="openDetail">
+      <image wx:if="{{item.CoverUrl}}" class="cover poster" mode="aspectFill" src="{{item.CoverUrl}}"></image>
+      <view wx:else class="poster placeholder">{{item.Name}}</view>
+      <view class="script-main">
+        <view class="script-top">
+          <view class="title">{{item.Name}}</view>
+          <view class="price">￥{{item.PriceText}}</view>
+        </view>
+        <view class="muted">{{item.GenreName}} · {{item.PlayerMin}}-{{item.PlayerMax}}人 · {{item.DurationMinutes}}分钟</view>
+        <view class="summary">{{item.Slogan || item.StoryBackground || '点击查看角色、场次与玩家评价。'}}</view>
+        <view class="script-meta">
+          <text class="tag">{{item.Difficulty || '标准'}}</text>
+          <text class="caption">{{item.RatingText}}分 · 已售{{item.SoldCount || 0}}</text>
+        </view>
       </view>
     </view>
   </view>

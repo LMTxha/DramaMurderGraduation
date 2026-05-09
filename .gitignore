@@ -16,3 +16,4 @@ roomchat_error.html
 DramaMurderGraduation.Web/Web.local.config
 *.user
 *.suo
+project.private.config.json

@@ -47,7 +47,8 @@ namespace DramaMurderGraduation.Web
 
         protected void rptReservations_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
-            if (!string.Equals(e.CommandName, "CancelOccupancy", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(e.CommandName, "CancelOccupancy", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(e.CommandName, "CompleteOccupancy", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -58,14 +59,24 @@ namespace DramaMurderGraduation.Web
             }
 
             var currentUser = AuthManager.GetCurrentUser();
-            var success = _repository.ReviewReservation(
-                reservationId,
-                "已取消",
-                null,
-                "管理员在剧本占用情况中取消占用。",
-                "门店已取消本次预约，占用名额已释放。",
-                currentUser == null ? 0 : currentUser.UserId,
-                out var message);
+            var operatorUserId = currentUser == null ? 0 : currentUser.UserId;
+            bool success;
+            string message;
+            if (string.Equals(e.CommandName, "CompleteOccupancy", StringComparison.OrdinalIgnoreCase))
+            {
+                success = _repository.CompleteReservationByAdmin(reservationId, operatorUserId, out message);
+            }
+            else
+            {
+                success = _repository.ReviewReservation(
+                    reservationId,
+                    "已取消",
+                    null,
+                    "管理员在剧本占用情况中取消占用。",
+                    "门店已取消本次预约，占用名额已释放。",
+                    operatorUserId,
+                    out message);
+            }
 
             ShowMessage(message, success);
             BindAll();
@@ -112,7 +123,7 @@ namespace DramaMurderGraduation.Web
             if (!selectedScriptId.HasValue)
             {
                 litPageHeading.Text = "剧本占用情况";
-                litPageSubtitle.Text = "按剧本查看当前有效预约、玩家占用名额和房间场地安排，管理员可直接取消占用并释放名额。";
+                litPageSubtitle.Text = "按剧本查看当前有效预约、玩家占用名额和房间场地安排，管理员可完成订单或取消占用来释放名额。";
                 litSelectedScriptName.Text = "选择一个剧本查看占用";
                 litSelectedSummary.Text = "上方剧本卡片会显示当前占用订单、占用人数和占用场地数量。";
                 BindSelectedSummary(0, 0, new List<string>());

@@ -197,6 +197,39 @@
                         <h2>售后与评价状态</h2>
                         <p>订单完成后，售后申请和评价情况也会和订单绑定展示，不再分散在多个页面里查找。</p>
                     </div>
+                    <asp:Panel ID="pnlRefundMessage" runat="server" Visible="false" CssClass="status-message">
+                        <asp:Literal ID="litRefundMessage" runat="server" />
+                    </asp:Panel>
+                    <asp:Panel ID="pnlRefundTemplate" runat="server" CssClass="reservation-card top-gap">
+                        <h3>退款 / 售后申请</h3>
+                        <p>如果本次体验不满意、无法到店或需要协商退款，可以在这里提交申请。管理员会在后台“售后与退款”中审核处理。</p>
+                        <div class="filter-bar compact-filter">
+                            <div class="field-group">
+                                <label for="<%= ddlAfterSaleType.ClientID %>">申请类型</label>
+                                <asp:DropDownList ID="ddlAfterSaleType" runat="server" CssClass="input-control">
+                                    <asp:ListItem Value="退款申请">退款申请</asp:ListItem>
+                                    <asp:ListItem Value="改期申请">改期申请</asp:ListItem>
+                                    <asp:ListItem Value="体验投诉">体验投诉</asp:ListItem>
+                                    <asp:ListItem Value="其他售后">其他售后</asp:ListItem>
+                                </asp:DropDownList>
+                            </div>
+                            <div class="field-group">
+                                <label for="<%= txtAfterSaleAmount.ClientID %>">退款金额</label>
+                                <asp:TextBox ID="txtAfterSaleAmount" runat="server" CssClass="input-control" placeholder="可留空，默认由管理员按订单金额审核" />
+                            </div>
+                        </div>
+                        <div class="field-group">
+                            <label for="<%= txtAfterSaleReason.ClientID %>">申请说明</label>
+                            <asp:TextBox ID="txtAfterSaleReason" runat="server" CssClass="input-control textarea" TextMode="MultiLine" Rows="4" placeholder="请说明不满意原因、退款诉求或希望改期时间" />
+                        </div>
+                        <div class="field-group">
+                            <label for="<%= fuAfterSaleEvidence.ClientID %>">凭证附件</label>
+                            <asp:FileUpload ID="fuAfterSaleEvidence" runat="server" CssClass="input-control" />
+                        </div>
+                        <div class="hero-actions top-gap">
+                            <asp:Button ID="btnCreateAfterSale" runat="server" Text="提交退款/售后申请" CssClass="btn-primary" OnClick="btnCreateAfterSale_Click" />
+                        </div>
+                    </asp:Panel>
                     <%-- 列表容器：承载 Repeater 渲染出的多条业务卡片。 --%>
                     <div class="reservation-list">
                         <%-- 数据列表控件 rptAfterSaleRequests：后台绑定集合数据后，按 ItemTemplate 循环渲染每条记录。 --%>

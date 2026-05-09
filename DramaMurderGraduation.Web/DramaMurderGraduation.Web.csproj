@@ -235,6 +235,10 @@
     <Compile Include="Login.aspx.designer.cs">
       <DependentUpon>Login.aspx</DependentUpon>
     </Compile>
+    <Compile Include="MiniApi.aspx.cs">
+      <DependentUpon>MiniApi.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
     <Compile Include="ForgotPassword.aspx.cs">
       <DependentUpon>ForgotPassword.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -262,6 +266,13 @@
     </Compile>
     <Compile Include="OrderDetails.aspx.designer.cs">
       <DependentUpon>OrderDetails.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="RefundCenter.aspx.cs">
+      <DependentUpon>RefundCenter.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="RefundCenter.aspx.designer.cs">
+      <DependentUpon>RefundCenter.aspx</DependentUpon>
     </Compile>
     <Compile Include="Models\AnnouncementInfo.cs" />
     <Compile Include="Models\AdminReplyLogInfo.cs" />
@@ -464,10 +475,12 @@
     <Content Include="RoomGroupChat.aspx" />
     <Content Include="Global.asax" />
     <Content Include="Login.aspx" />
+    <Content Include="MiniApi.aspx" />
     <Content Include="ForgotPassword.aspx" />
     <Content Include="NotificationCenter.aspx" />
     <Content Include="OrderConversation.aspx" />
     <Content Include="OrderDetails.aspx" />
+    <Content Include="RefundCenter.aspx" />
     <Content Include="CheckInPass.aspx" />
     <Content Include="PlayerHub.aspx" />
     <Content Include="Register.aspx" />

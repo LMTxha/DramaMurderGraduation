@@ -10,6 +10,7 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litHeaderReservationCount;
         protected global::System.Web.UI.WebControls.Literal litHeaderRating;
         protected global::System.Web.UI.WebControls.PlaceHolder phLoggedIn;
+        protected global::System.Web.UI.WebControls.HyperLink lnkRefundNav;
         protected global::System.Web.UI.WebControls.PlaceHolder phSocialNav;
         protected global::System.Web.UI.WebControls.Literal litSocialNavLabel;
         protected global::System.Web.UI.WebControls.PlaceHolder phMyRoomsNav;

@@ -1,12 +1,50 @@
 <view class="page">
-  <view class="card">
-    <picker mode="selector" range="{{sessions}}" range-key="Label" value="{{sessionIndex}}" bindchange="pickSession">
-      <view class="picker">{{sessions[sessionIndex].Label || '选择预约场次'}}</view>
-    </picker>
-    <input class="input" placeholder="联系人" value="{{form.contactName}}" data-field="contactName" bindinput="input" />
-    <input class="input" placeholder="联系电话" value="{{form.phone}}" data-field="phone" bindinput="input" />
-    <input class="input" type="number" placeholder="预约人数" value="{{form.playerCount}}" data-field="playerCount" bindinput="input" />
-    <textarea class="textarea" placeholder="备注需求" value="{{form.remark}}" data-field="remark" bindinput="input"></textarea>
-    <button class="button" bindtap="submit">提交预约</button>
+  <view class="booking-head">
+    <view class="eyebrow">BOOKING</view>
+    <view class="head-title">预约剧本场次</view>
+    <view class="head-sub">选择可约场次，提交后可在订单页确认到店。</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">正在准备预约表单...</view>
+
+  <view wx:elif="{{!loggedIn}}" class="card login-card">
+    <view class="title">需要先登录</view>
+    <view class="muted">预约、订单确认和钱包服务需要账号登录后使用。</view>
+    <button class="primary-btn" bindtap="goLogin">去登录</button>
+  </view>
+
+  <view wx:else class="card form-card">
+    <view class="field">
+      <view class="field-label">预约场次</view>
+      <picker mode="selector" range="{{sessions}}" range-key="Label" value="{{sessionIndex}}" bindchange="pickSession">
+        <view class="picker">{{sessions[sessionIndex].Label || '暂无可约场次'}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <view class="field-label">联系人</view>
+      <input class="input" placeholder="请输入联系人姓名" value="{{form.contactName}}" data-field="contactName" bindinput="input" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">联系电话</view>
+      <input class="input" type="number" placeholder="请输入联系电话" value="{{form.phone}}" data-field="phone" bindinput="input" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">预约人数</view>
+      <view class="stepper">
+        <button class="step-btn" bindtap="removePlayer">-</button>
+        <input class="step-input" type="number" value="{{form.playerCount}}" data-field="playerCount" bindinput="input" />
+        <button class="step-btn" bindtap="addPlayer">+</button>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field-label">备注需求</view>
+      <textarea class="textarea" placeholder="如生日局、拼车、角色偏好等" value="{{form.remark}}" data-field="remark" bindinput="input"></textarea>
+    </view>
+
+    <button class="primary-btn" disabled="{{!sessions.length}}" bindtap="submit">提交预约</button>
   </view>
 </view>

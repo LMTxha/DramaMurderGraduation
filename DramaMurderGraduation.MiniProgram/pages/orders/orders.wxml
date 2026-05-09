@@ -1,17 +1,84 @@
 <view class="page">
-  <view wx:if="{{!loggedIn}}" class="card empty">
-    <view>登录后查看预约订单</view>
-    <button class="button" bindtap="goProfile">去登录</button>
+  <view class="section-head">
+    <view>
+      <view class="section-title">我的订单</view>
+      <view class="muted">查看预约状态、确认到店和后续评价。</view>
+    </view>
   </view>
 
-  <view wx:for="{{orders}}" wx:key="Id" class="card order">
-    <view class="order-head">
-      <view class="script-title">{{item.ScriptName}}</view>
-      <view class="tag">{{item.Status}}</view>
+  <view wx:if="{{loading}}" class="loading">正在读取订单...</view>
+
+  <view wx:elif="{{!loggedIn}}" class="card empty-state">
+    <view class="title">登录后查看订单</view>
+    <view class="muted">当前还没有登录，无法同步你的预约记录。</view>
+    <button class="primary-btn" bindtap="goProfile">去登录</button>
+  </view>
+
+  <view wx:elif="{{!orders.length}}" class="card empty-state">
+    <view class="title">暂无预约</view>
+    <view class="muted">先挑一个想玩的剧本，再回来查看订单进度。</view>
+    <button class="primary-btn" bindtap="goScripts">去选剧本</button>
+  </view>
+
+  <view wx:else>
+    <view wx:for="{{orders}}" wx:key="Id" class="order card">
+      <view class="order-head">
+        <view>
+          <view class="title">{{item.ScriptName}}</view>
+          <view class="caption">{{item.CreatedText}} 提交</view>
+        </view>
+        <view class="tag">{{item.StatusText}}</view>
+      </view>
+      <view class="order-grid">
+        <view>
+          <text class="caption">场次</text>
+          <text class="value">{{item.TimeText}}</text>
+        </view>
+        <view>
+          <text class="caption">房间</text>
+          <text class="value">{{item.RoomName || '待定'}}</text>
+        </view>
+        <view>
+          <text class="caption">人数</text>
+          <text class="value">{{item.PlayerCount || 0}}人</text>
+        </view>
+        <view>
+          <text class="caption">金额</text>
+          <text class="value">￥{{item.AmountText}}</text>
+        </view>
+      </view>
+      <view class="order-actions">
+        <button wx:if="{{item.CanConfirm}}" class="plain-btn action-btn" data-id="{{item.Id}}" bindtap="confirm">确认预约</button>
+        <button wx:if="{{item.CanComplete}}" class="secondary-btn action-btn" data-id="{{item.Id}}" bindtap="complete">到店完成</button>
+        <button class="plain-btn action-btn" data-id="{{item.Id}}" bindtap="startRefund">申请退款</button>
+        <button wx:if="{{item.CanReview}}" class="primary-btn action-btn" data-id="{{item.Id}}" bindtap="startReview">去评价</button>
+        <view wx:if="{{item.HasReview}}" class="reviewed">已评价</view>
+      </view>
+      <view wx:if="{{item.LatestAfterSaleStatus}}" class="after-sale-line">售后：{{item.LatestAfterSaleType}} · {{item.LatestAfterSaleStatus}}</view>
+
+      <view wx:if="{{refundingId == item.Id}}" class="review-box">
+        <view class="field-label">退款 / 售后申请</view>
+        <input class="input" placeholder="申请类型" value="{{refund.requestType}}" data-field="requestType" bindinput="refundInput" />
+        <input class="input" type="digit" placeholder="退款金额，可留空由管理员审核" value="{{refund.requestedAmount}}" data-field="requestedAmount" bindinput="refundInput" />
+        <textarea class="textarea" placeholder="请说明不满意原因、退款诉求或希望改期时间" value="{{refund.reason}}" data-field="reason" bindinput="refundInput"></textarea>
+        <view class="review-actions">
+          <button class="plain-btn action-btn" bindtap="cancelRefund">取消</button>
+          <button class="primary-btn action-btn" data-id="{{item.Id}}" bindtap="submitRefund">提交退款</button>
+        </view>
+      </view>
+
+      <view wx:if="{{reviewingId == item.Id}}" class="review-box">
+        <view class="field-label">本次体验评分</view>
+        <view class="stars">
+          <view wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="star {{review.rating >= item ? 'active' : ''}}" data-rating="{{item}}" bindtap="pickRating">★</view>
+        </view>
+        <input class="input" placeholder="评价标签，如 推理扎实 / 沉浸感强" value="{{review.highlightTag}}" data-field="highlightTag" bindinput="reviewInput" />
+        <textarea class="textarea" placeholder="写下你的真实体验" value="{{review.content}}" data-field="content" bindinput="reviewInput"></textarea>
+        <view class="review-actions">
+          <button class="plain-btn action-btn" bindtap="cancelReview">取消</button>
+          <button class="primary-btn action-btn" data-id="{{item.Id}}" bindtap="submitReview">提交评价</button>
+        </view>
+      </view>
     </view>
-    <view class="muted">{{item.RoomName}} · {{item.HostName || '待定DM'}}</view>
-    <view class="muted">联系人：{{item.ContactName}} · {{item.PlayerCount}}人</view>
-    <view class="amount">￥{{item.TotalAmount}}</view>
-    <button wx:if="{{item.ConfirmStatus !== '玩家已确认'}}" class="button ghost-button" data-id="{{item.Id}}" bindtap="confirm">确认到店</button>
   </view>
 </view>

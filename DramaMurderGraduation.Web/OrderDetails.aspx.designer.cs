@@ -32,6 +32,14 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Repeater rptServiceMessages;
         protected global::System.Web.UI.WebControls.HyperLink lnkConversationInline;
         protected global::System.Web.UI.WebControls.Repeater rptReplyLogs;
+        protected global::System.Web.UI.WebControls.Panel pnlRefundMessage;
+        protected global::System.Web.UI.WebControls.Literal litRefundMessage;
+        protected global::System.Web.UI.WebControls.Panel pnlRefundTemplate;
+        protected global::System.Web.UI.WebControls.DropDownList ddlAfterSaleType;
+        protected global::System.Web.UI.WebControls.TextBox txtAfterSaleAmount;
+        protected global::System.Web.UI.WebControls.TextBox txtAfterSaleReason;
+        protected global::System.Web.UI.WebControls.FileUpload fuAfterSaleEvidence;
+        protected global::System.Web.UI.WebControls.Button btnCreateAfterSale;
         protected global::System.Web.UI.WebControls.Repeater rptAfterSaleRequests;
         protected global::System.Web.UI.WebControls.Literal litReviewBadge;
         protected global::System.Web.UI.WebControls.Panel pnlOrderReview;

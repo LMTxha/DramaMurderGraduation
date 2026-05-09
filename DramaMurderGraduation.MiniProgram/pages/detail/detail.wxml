@@ -1,36 +1,68 @@
-<view class="page">
-  <view class="detail-head">
-    <image class="cover" mode="aspectFill" src="{{script.CoverImage || '/assets/cover-placeholder.png'}}"></image>
-    <view class="head-body">
-      <view class="title">{{script.Name}}</view>
-      <view class="muted">{{script.GenreName}} · {{script.PlayerMin}}-{{script.PlayerMax}}人</view>
-      <view class="price">￥{{script.Price}} / 人</view>
-      <button class="button" data-id="{{script.Id}}" bindtap="book">立即预约</button>
-    </view>
-  </view>
-
-  <view class="section">
-    <view class="section-title">故事简介</view>
-    <view class="card text-block">{{script.StoryBackground || script.Slogan}}</view>
-  </view>
-
-  <view class="section" wx:if="{{characters.length}}">
-    <view class="section-title">角色阵容</view>
-    <view wx:for="{{characters}}" wx:key="Id" class="card character">
-      <view class="script-title">{{item.Name}}</view>
-      <view class="muted">{{item.Gender}} · {{item.Profession}}</view>
-      <view class="summary">{{item.Description}}</view>
-    </view>
-  </view>
-
-  <view class="section">
-    <view class="section-title">可约场次</view>
-    <view wx:for="{{sessions}}" wx:key="Id" class="card session" data-id="{{item.Id}}" bindtap="bookSession">
-      <view>
-        <view class="script-title">{{item.RoomName}}</view>
-        <view class="muted">{{item.HostName || '待定DM'}} · ￥{{item.BasePrice}}</view>
+<view class="page with-bottom">
+  <view wx:if="{{loading}}" class="loading">正在载入剧本档案...</view>
+  <view wx:else>
+    <view class="detail-hero">
+      <image wx:if="{{script.CoverUrl}}" class="cover hero-cover" mode="aspectFill" src="{{script.CoverUrl}}"></image>
+      <view wx:else class="hero-cover hero-placeholder">{{script.Name}}</view>
+      <view class="hero-panel card">
+        <view class="tag dark">{{script.GenreName || '剧本'}}</view>
+        <view class="hero-title">{{script.Name}}</view>
+        <view class="muted">{{script.PlayerMin}}-{{script.PlayerMax}}人 · {{script.DurationMinutes}}分钟 · {{script.Difficulty || '标准难度'}}</view>
+        <view class="hero-price">￥{{script.PriceText}} / 人</view>
       </view>
-      <view class="right">{{item.RemainingSeats}}席</view>
     </view>
+
+    <view class="section">
+      <view class="section-head">
+        <view class="section-title">故事简介</view>
+      </view>
+      <view class="card content">{{script.StoryBackground || script.Slogan || '暂无故事简介'}}</view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <view class="section-title">可约场次</view>
+      </view>
+      <view wx:if="{{!sessions.length}}" class="empty card">暂无可预约场次</view>
+      <view wx:for="{{sessions}}" wx:key="Id" class="session card">
+        <view class="session-main">
+          <view class="title">{{item.TimeText}}</view>
+          <view class="muted">{{item.RoomName}} · {{item.HostName || '待定 DM'}}</view>
+          <view class="caption">剩余 {{item.RemainingSeats || 0}} 席</view>
+        </view>
+        <button class="session-btn" disabled="{{item.Disabled}}" data-id="{{item.Id}}" bindtap="bookSession">{{item.Disabled ? '满员' : '预约'}}</button>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{characters.length}}">
+      <view class="section-head">
+        <view class="section-title">角色档案</view>
+      </view>
+      <view class="character-grid">
+        <view wx:for="{{characters}}" wx:key="Id" class="character card">
+          <view class="title">{{item.Name}}</view>
+          <view class="caption">{{item.Gender}} · {{item.AgeRange}} · {{item.Profession}}</view>
+          <view class="muted">{{item.Personality || item.Description}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{reviews.length}}">
+      <view class="section-head">
+        <view class="section-title">玩家评价</view>
+        <view class="section-action">{{script.RatingText}}分</view>
+      </view>
+      <view wx:for="{{reviews}}" wx:key="Id" class="review card">
+        <view class="review-head">
+          <view class="title">{{item.DisplayName || item.Username || '玩家'}}</view>
+          <view class="tag">{{item.Rating}}分</view>
+        </view>
+        <view class="muted">{{item.Content}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading}}" class="bottom-bar">
+    <button class="primary-btn" bindtap="book">立即预约</button>
   </view>
 </view>

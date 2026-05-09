@@ -67,6 +67,12 @@ namespace DramaMurderGraduation.Web
                 imgCurrentAvatar.ImageUrl = ResolveAvatarUrl(userSettings?.AvatarUrl);
                 imgCurrentAvatar.AlternateText = currentUser.DisplayName + "头像";
                 RefreshUnreadNavigationBadges();
+                lnkRefundNav.NavigateUrl = currentUser.CanAccessAdminConsole
+                    ? "AdminReview.aspx#after-sale-admin"
+                    : "RefundCenter.aspx";
+                lnkRefundNav.Text = currentUser.CanAccessAdminConsole
+                    ? "售后退款审核"
+                    : "退款售后";
                 lnkAdminReviewNav.Visible = currentUser.CanAccessAdminConsole;
                 lnkAnalyticsNav.Visible = currentUser.CanViewAnalytics;
                 lnkAdminScriptOccupancyNav.Visible = currentUser.CanManageOperations;

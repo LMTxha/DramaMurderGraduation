@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "雾城剧本研究所"
+  "navigationBarTitleText": "雾城剧本研究所",
+  "enablePullDownRefresh": true
 }

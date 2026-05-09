@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Web;
+using System.Web.UI.WebControls;
 using DramaMurderGraduation.Web.Data;
 using DramaMurderGraduation.Web.Models;
 
@@ -72,6 +73,11 @@ namespace DramaMurderGraduation.Web
             lnkConversationInline.NavigateUrl = "OrderConversation.aspx?reservationId=" + reservation.Id;
             lnkCheckInPass.NavigateUrl = "CheckInPass.aspx?reservationId=" + reservation.Id;
             lnkCheckInPassInline.NavigateUrl = "CheckInPass.aspx?reservationId=" + reservation.Id;
+            pnlRefundTemplate.Visible = !currentUser.IsAdmin && CanRequestAfterSale(reservation.Status);
+            if (!IsPostBack)
+            {
+                txtAfterSaleAmount.Text = reservation.TotalAmount > 0 ? reservation.TotalAmount.ToString("F2") : string.Empty;
+            }
             litContactName.Text = Server.HtmlEncode(reservation.ContactName);
             litPhoneMasked.Text = Server.HtmlEncode(reservation.PhoneMasked);
             litPlayerCount.Text = reservation.PlayerCount.ToString();
@@ -126,6 +132,43 @@ namespace DramaMurderGraduation.Web
                 .Where(item => item.ReservationId == reservation.Id)
                 .ToList();
             rptAfterSaleRequests.DataBind();
+        }
+
+        protected void btnCreateAfterSale_Click(object sender, EventArgs e)
+        {
+            var currentUser = AuthManager.GetCurrentUser();
+            if (currentUser == null || currentUser.IsAdmin || !TryGetReservationId(out var reservationId))
+            {
+                ShowNotFound();
+                return;
+            }
+
+            var amount = 0M;
+            if (!string.IsNullOrWhiteSpace(txtAfterSaleAmount.Text) && !decimal.TryParse(txtAfterSaleAmount.Text.Trim(), out amount))
+            {
+                BindPage();
+                ShowRefundMessage("退款金额格式不正确，可以留空或填写数字。", false);
+                return;
+            }
+
+            if (!UploadHelper.TrySave(fuAfterSaleEvidence, "aftersale", out var evidenceUrl, out var uploadError))
+            {
+                BindPage();
+                ShowRefundMessage(uploadError, false);
+                return;
+            }
+
+            var success = _repository.CreateAfterSaleRequest(
+                reservationId,
+                currentUser.UserId,
+                ddlAfterSaleType.SelectedValue,
+                txtAfterSaleReason.Text.Trim(),
+                amount,
+                evidenceUrl,
+                out var message);
+
+            BindPage();
+            ShowRefundMessage(message, success);
         }
 
         protected void btnLeaveReservation_Click(object sender, EventArgs e)
@@ -252,6 +295,22 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        private static bool CanRequestAfterSale(string status)
+        {
+            switch (status)
+            {
+                case "待确认":
+                case "已确认":
+                case "玩家已确认":
+                case "申请改期":
+                case "已到店":
+                case "已完成":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         private static string RenderTimelineStep(string title, string summary, bool active)
         {
             return "<span class=\"service-timeline-step" + (active ? " active" : string.Empty) + "\"><span class=\"service-timeline-dot\"></span><span class=\"service-timeline-copy\"><strong>"
@@ -268,6 +327,13 @@ namespace DramaMurderGraduation.Web
         {
             pnlNotFound.Visible = true;
             pnlDetail.Visible = false;
+        }
+
+        private void ShowRefundMessage(string message, bool success)
+        {
+            pnlRefundMessage.Visible = true;
+            pnlRefundMessage.CssClass = success ? "status-message" : "status-message error";
+            litRefundMessage.Text = Server.HtmlEncode(message);
         }
 
         /// <summary>

@@ -1,38 +1,92 @@
-<view class="page">
-  <view class="hero card">
-    <view class="hero-title">{{settings.HeroTitle || settings.SiteName || '雾城剧本研究所'}}</view>
-    <view class="hero-subtitle">{{settings.HeroSubtitle || '沉浸式剧本杀预约与玩家服务平台'}}</view>
-    <button class="button" bindtap="goScripts">浏览剧本</button>
-  </view>
-
-  <view class="stats">
-    <view class="stat"><text>{{metrics.ScriptCount || 0}}</text><text>剧本</text></view>
-    <view class="stat"><text>{{metrics.RoomCount || 0}}</text><text>房间</text></view>
-    <view class="stat"><text>{{metrics.AverageRating || 0}}</text><text>评分</text></view>
-  </view>
-
-  <view class="section">
-    <view class="section-title">精选剧本</view>
-    <view wx:for="{{featuredScripts}}" wx:key="Id" class="script-row card" data-id="{{item.Id}}" bindtap="openDetail">
-      <image class="cover" mode="aspectFill" src="{{item.CoverImage || '/assets/cover-placeholder.png'}}"></image>
-      <view class="script-body">
-        <view class="script-title">{{item.Name}}</view>
-        <view class="muted">{{item.GenreName}} · {{item.PlayerMin}}-{{item.PlayerMax}}人 · {{item.DurationMinutes}}分钟</view>
-        <view class="tag">{{item.Difficulty || '沉浸'}}</view>
-      </view>
+<view class="page with-bottom">
+  <view class="hero">
+    <view class="hero-copy">
+      <view class="eyebrow">MURDER MYSTERY CLUB</view>
+      <view class="hero-title">{{settings.HeroTitle || settings.SiteName || '雾城剧本研究所'}}</view>
+      <view class="hero-subtitle">{{settings.HeroSubtitle || '剧本浏览、预约下单、订单跟踪与玩家服务一站完成。'}}</view>
+    </view>
+    <view class="hero-actions">
+      <button class="primary-btn" bindtap="goScripts">选剧本</button>
+      <button class="plain-btn" bindtap="goOrders">看订单</button>
     </view>
   </view>
 
-  <view class="section">
-    <view class="section-title">近期场次</view>
-    <view wx:for="{{sessions}}" wx:key="Id" class="card session-row">
-      <view>
-        <view class="script-title">{{item.ScriptName}}</view>
-        <view class="muted">{{item.RoomName}} · {{item.HostName || '待定DM'}}</view>
+  <view class="stats card">
+    <view class="stat">
+      <text class="stat-number">{{metrics.ScriptCount || 0}}</text>
+      <text class="caption">上架剧本</text>
+    </view>
+    <view class="stat">
+      <text class="stat-number">{{metrics.RoomCount || 0}}</text>
+      <text class="caption">主题房间</text>
+    </view>
+    <view class="stat">
+      <text class="stat-number">{{metrics.AverageRating || 0}}</text>
+      <text class="caption">玩家评分</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">正在同步门店数据...</view>
+
+  <view wx:else>
+    <view class="section" wx:if="{{announcements.length}}">
+      <view class="section-head">
+        <view class="section-title">门店公告</view>
       </view>
-      <view class="session-side">
-        <view>{{item.RemainingSeats}}席</view>
-        <view class="muted">{{item.SessionDateTimeText}}</view>
+      <view class="notice card" wx:for="{{announcements}}" wx:key="Id">
+        <view class="title">{{item.Title}}</view>
+        <view class="muted">{{item.Content}}</view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <view class="section-title">精选剧本</view>
+        <view class="section-action" bindtap="goScripts">全部</view>
+      </view>
+      <scroll-view scroll-x class="script-scroll">
+        <view class="script-track">
+          <view class="script-card card" wx:for="{{featuredScripts}}" wx:key="Id" data-id="{{item.Id}}" bindtap="openDetail">
+            <image wx:if="{{item.CoverUrl}}" class="cover poster" mode="aspectFill" src="{{item.CoverUrl}}"></image>
+            <view wx:else class="poster placeholder">{{item.Name}}</view>
+            <view class="script-info">
+              <view class="title one-line">{{item.Name}}</view>
+              <view class="caption">{{item.GenreName}} · {{item.PlayerMin}}-{{item.PlayerMax}}人</view>
+              <view class="script-bottom">
+                <text class="price">￥{{item.PriceText}}</text>
+                <text class="tag">{{item.Difficulty || '沉浸'}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <view class="section-title">近期可约</view>
+      </view>
+      <view wx:if="{{!sessions.length}}" class="empty card">暂无可预约场次</view>
+      <view wx:for="{{sessions}}" wx:key="Id" class="session card">
+        <view class="session-main">
+          <view class="title">{{item.ScriptName}}</view>
+          <view class="muted">{{item.RoomName}} · {{item.HostName || '待定 DM'}}</view>
+          <view class="caption">{{item.TimeText}}</view>
+        </view>
+        <view class="session-side">
+          <view class="tag dark">{{item.SeatText}}</view>
+          <button class="mini-btn" data-id="{{item.Id}}" bindtap="bookSession">预约</button>
+        </view>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{recommendations.length}}">
+      <view class="section-head">
+        <view class="section-title">今日推荐</view>
+      </view>
+      <view class="recommend card" wx:for="{{recommendations}}" wx:key="Id">
+        <view class="title">{{item.Title || item.ScriptName}}</view>
+        <view class="muted">{{item.Reason || item.Description}}</view>
       </view>
     </view>
   </view>

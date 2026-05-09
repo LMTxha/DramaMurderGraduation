@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "剧本库"
+  "navigationBarTitleText": "剧本库",
+  "enablePullDownRefresh": true
 }

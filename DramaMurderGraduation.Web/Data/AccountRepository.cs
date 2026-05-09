@@ -15,7 +15,7 @@ namespace DramaMurderGraduation.Web.Data
         /// 注册普通玩家账号。
         /// 新账号默认角色为 Player、审核状态为 Pending，需要后台审核通过后才能登录系统。
         /// </summary>
-        public bool Register(UserRegistrationRequest request, out string message)
+        public bool Register(UserRegistrationRequest request, out string message, bool autoApprove = false)
         {
             const string sql = @"
 IF EXISTS (SELECT 1 FROM dbo.Users WHERE Username = @Username)
@@ -33,6 +33,7 @@ INSERT INTO dbo.Users
     Phone,
     RoleCode,
     ReviewStatus,
+    ReviewedAt,
     CreatedAt
 )
 VALUES
@@ -43,7 +44,8 @@ VALUES
     @Email,
     @Phone,
     N'Player',
-    N'Pending',
+    @ReviewStatus,
+    @ReviewedAt,
     GETDATE()
 );";
 
@@ -55,6 +57,8 @@ VALUES
                 command.Parameters.AddWithValue("@DisplayName", request.DisplayName);
                 command.Parameters.AddWithValue("@Email", request.Email);
                 command.Parameters.AddWithValue("@Phone", request.Phone);
+                command.Parameters.AddWithValue("@ReviewStatus", autoApprove ? "Approved" : "Pending");
+                command.Parameters.AddWithValue("@ReviewedAt", autoApprove ? (object)DateTime.Now : DBNull.Value);
 
                 connection.Open();
                 try

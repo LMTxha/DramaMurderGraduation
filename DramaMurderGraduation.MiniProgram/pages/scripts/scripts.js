@@ -1,46 +1,72 @@
 const api = require('../../utils/api');
+const format = require('../../utils/format');
+const demo = require('../../utils/demo');
 
 Page({
   data: {
+    loading: true,
     keyword: '',
-    genreId: null,
+    genreId: '',
     genres: [],
     scripts: []
   },
 
   onLoad() {
-    this.loadGenres();
-    this.loadScripts();
+    this.load();
+  },
+
+  onPullDownRefresh() {
+    this.loadScripts().finally(() => wx.stopPullDownRefresh());
+  },
+
+  async load() {
+    await Promise.all([this.loadGenres(), this.loadScripts()]);
   },
 
   async loadGenres() {
     try {
-      this.setData({ genres: await api.get('genres') });
+      const genres = await api.get('genres');
+      this.setData({ genres: genres && genres.length ? genres : demo.genres });
     } catch (err) {
-      wx.showToast({ title: err.message, icon: 'none' });
+      this.setData({ genres: demo.genres });
     }
   },
 
   async loadScripts() {
+    this.setData({ loading: true });
     try {
-      const scripts = await api.get('scripts', { keyword: this.data.keyword, genreId: this.data.genreId || '' });
-      this.setData({ scripts });
+      const scripts = await api.get('scripts', {
+        keyword: this.data.keyword,
+        genreId: this.data.genreId
+      });
+      const list = scripts && scripts.length ? scripts : demo.listScripts(this.data.keyword, this.data.genreId);
+      this.setData({ scripts: list.map(this.mapScript) });
     } catch (err) {
-      wx.showToast({ title: err.message, icon: 'none' });
+      this.setData({ scripts: demo.listScripts(this.data.keyword, this.data.genreId).map(this.mapScript) });
+    } finally {
+      this.setData({ loading: false });
     }
+  },
+
+  mapScript(item) {
+    return {
+      ...item,
+      CoverUrl: format.imageUrl(item.CoverImage),
+      PriceText: format.money(item.Price),
+      RatingText: format.text(item.AverageRating, '暂无')
+    };
   },
 
   onKeyword(event) {
     this.setData({ keyword: event.detail.value });
   },
 
-  pickGenre(event) {
-    this.setData({ genreId: event.currentTarget.dataset.id });
+  search() {
     this.loadScripts();
   },
 
-  clearGenre() {
-    this.setData({ genreId: null });
+  pickGenre(event) {
+    this.setData({ genreId: event.currentTarget.dataset.id || '' });
     this.loadScripts();
   },
 

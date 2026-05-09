@@ -11,7 +11,8 @@
     "navigationBarTitleText": "雾城剧本研究所",
     "navigationBarBackgroundColor": "#151619",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f2ec"
+    "backgroundColor": "#f4f1ea",
+    "enablePullDownRefresh": false
   },
   "tabBar": {
     "color": "#777777",

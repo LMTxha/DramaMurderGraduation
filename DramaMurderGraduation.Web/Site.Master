@@ -88,6 +88,7 @@
                         <a href="Reviews.aspx">玩家点评</a>
                         <asp:PlaceHolder ID="phLoggedIn" runat="server" Visible="false">
                             <a href="Wallet.aspx">钱包中心</a>
+                            <asp:HyperLink ID="lnkRefundNav" runat="server" NavigateUrl="RefundCenter.aspx" Text="退款售后" />
                             <a href="NotificationCenter.aspx"><asp:Literal ID="litNotificationNavLabel" runat="server" /></a>
                             <a href="CreatorCenter.aspx">创作者中心</a>
                             <a href="Settings.aspx">设置中心</a>

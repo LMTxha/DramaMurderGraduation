@@ -79,8 +79,14 @@ namespace DramaMurderGraduation.Web
                     case "confirmreservation":
                         RequireLogin(ConfirmReservation);
                         break;
+                    case "completereservation":
+                        RequireLogin(CompleteReservation);
+                        break;
                     case "createreview":
                         RequireLogin(CreateReview);
+                        break;
+                    case "createaftersale":
+                        RequireLogin(CreateAfterSale);
                         break;
                     case "wallet":
                         RequireLogin(user => WriteOk(new
@@ -157,10 +163,10 @@ namespace DramaMurderGraduation.Web
                 Email = GetString(body, "email")
             };
 
-            var success = _accountRepository.Register(request, out var message);
+            var success = _accountRepository.Register(request, out var message, autoApprove: true);
             if (success)
             {
-                WriteOk(new { registered = true }, message);
+                WriteOk(new { registered = true }, "注册成功，可以直接登录。");
                 return;
             }
 
@@ -217,6 +223,20 @@ namespace DramaMurderGraduation.Web
             WriteFail(message);
         }
 
+        private void CompleteReservation(CurrentUserInfo user)
+        {
+            var body = ReadBody();
+            var reservationId = GetInt(body, "reservationId");
+            var success = _contentRepository.CompleteReservationByPlayer(reservationId, user.UserId, out var message);
+            if (success)
+            {
+                WriteOk(new { reservationId }, message);
+                return;
+            }
+
+            WriteFail(message);
+        }
+
         private void CreateReview(CurrentUserInfo user)
         {
             var body = ReadBody();
@@ -231,6 +251,27 @@ namespace DramaMurderGraduation.Web
             if (success)
             {
                 WriteOk(new { reviewed = true }, message);
+                return;
+            }
+
+            WriteFail(message);
+        }
+
+        private void CreateAfterSale(CurrentUserInfo user)
+        {
+            var body = ReadBody();
+            var success = _contentRepository.CreateAfterSaleRequest(
+                GetInt(body, "reservationId"),
+                user.UserId,
+                GetString(body, "requestType"),
+                GetString(body, "reason"),
+                GetDecimal(body, "requestedAmount"),
+                string.Empty,
+                out var message);
+
+            if (success)
+            {
+                WriteOk(new { submitted = true }, message);
                 return;
             }
 

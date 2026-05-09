@@ -117,6 +117,7 @@
                             <p>开场时间：<%# Eval("SessionDateTime", "{0:yyyy-MM-dd HH:mm}") %> · 占用名额：<%# Eval("PlayerCount") %> · 支付：<%# Eval("PaymentStatus") %></p>
                             <p>手机：<%# Eval("PhoneMasked") %> · 核销码：<%# Eval("CheckInCode") %></p>
                             <div class="hero-actions">
+                                <asp:Button ID="btnCompleteOccupancy" runat="server" Text="完成订单并释放名额" CssClass="btn-primary small" CommandName="CompleteOccupancy" CommandArgument='<%# Eval("Id") %>' CausesValidation="false" OnClientClick="return confirm('确认将这笔订单标记为已完成吗？完成后会释放该剧本和场次名额，并允许玩家评价。');" />
                                 <asp:Button ID="btnCancelOccupancy" runat="server" Text="取消占用并释放名额" CssClass="btn-secondary small" CommandName="CancelOccupancy" CommandArgument='<%# Eval("Id") %>' CausesValidation="false" OnClientClick="return confirm('确认由管理员取消这笔占用吗？取消后会释放玩家名额和房间席位。');" />
                                 <asp:HyperLink runat="server" CssClass="btn-secondary small" NavigateUrl='<%# "OrderDetails.aspx?reservationId=" + Eval("Id") %>' Text="订单详情" />
                                 <asp:HyperLink runat="server" CssClass="btn-secondary small" NavigateUrl='<%# "OrderConversation.aspx?reservationId=" + Eval("Id") %>' Text="订单沟通" />

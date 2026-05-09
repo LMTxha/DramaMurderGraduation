@@ -179,7 +179,7 @@
                 </div>
 
                 <%-- 模块标题区：说明当前业务模块的名称和处理说明。 --%>
-                <div class="section-heading left top-gap">
+                <div class="section-heading left top-gap" id="after-sale-center">
                     <h2>我的预约与售后</h2>
                     <p>门店确认、到店核销、改期和退款申请都会在这里形成记录。</p>
                 </div>
