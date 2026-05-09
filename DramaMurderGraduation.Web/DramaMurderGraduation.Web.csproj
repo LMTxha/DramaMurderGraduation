@@ -110,6 +110,20 @@
     <Compile Include="Data\GameRepository.cs" />
     <Compile Include="Data\ShowcaseRepository.cs" />
     <Compile Include="Data\SqlDatabaseInitializer.cs" />
+    <Compile Include="AdminScriptOccupancy.aspx.cs">
+      <DependentUpon>AdminScriptOccupancy.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="AdminScriptOccupancy.aspx.designer.cs">
+      <DependentUpon>AdminScriptOccupancy.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="AdminModule.aspx.cs">
+      <DependentUpon>AdminModule.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="AdminModule.aspx.designer.cs">
+      <DependentUpon>AdminModule.aspx</DependentUpon>
+    </Compile>
     <Compile Include="Analytics.aspx.cs">
       <DependentUpon>Analytics.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -137,6 +151,13 @@
     </Compile>
     <Compile Include="DmDashboard.aspx.designer.cs">
       <DependentUpon>DmDashboard.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="DmScheduleDay.aspx.cs">
+      <DependentUpon>DmScheduleDay.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="DmScheduleDay.aspx.designer.cs">
+      <DependentUpon>DmScheduleDay.aspx</DependentUpon>
     </Compile>
     <Compile Include="Friends.aspx.cs">
       <DependentUpon>Friends.aspx</DependentUpon>
@@ -180,12 +201,26 @@
     <Compile Include="GameRoom.aspx.designer.cs">
       <DependentUpon>GameRoom.aspx</DependentUpon>
     </Compile>
+    <Compile Include="VoteStatus.aspx.cs">
+      <DependentUpon>VoteStatus.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="VoteStatus.aspx.designer.cs">
+      <DependentUpon>VoteStatus.aspx</DependentUpon>
+    </Compile>
     <Compile Include="GroupChat.aspx.cs">
       <DependentUpon>GroupChat.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
     <Compile Include="GroupChat.aspx.designer.cs">
       <DependentUpon>GroupChat.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="RoomGroupChat.aspx.cs">
+      <DependentUpon>RoomGroupChat.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="RoomGroupChat.aspx.designer.cs">
+      <DependentUpon>RoomGroupChat.aspx</DependentUpon>
     </Compile>
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
@@ -267,6 +302,7 @@
     <Compile Include="Models\GameStageInfo.cs" />
     <Compile Include="Models\GameActionLogInfo.cs" />
     <Compile Include="Models\GamePlayerVoteInfo.cs" />
+    <Compile Include="Models\GameVoteDetailInfo.cs" />
     <Compile Include="Models\GameVoteSummaryInfo.cs" />
     <Compile Include="Models\HeatmapZoneInfo.cs" />
     <Compile Include="Models\IdentityOptionInfo.cs" />
@@ -336,6 +372,7 @@
     <Compile Include="Rooms.aspx.designer.cs">
       <DependentUpon>Rooms.aspx</DependentUpon>
     </Compile>
+    <Compile Include="RoomNavigationHelper.cs" />
     <Compile Include="ScriptDetails.aspx.cs">
       <DependentUpon>ScriptDetails.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -399,11 +436,14 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="AiSearch.aspx" />
+    <Content Include="AdminModule.aspx" />
     <Content Include="Analytics.aspx" />
     <Content Include="AdminReview.aspx" />
+    <Content Include="AdminScriptOccupancy.aspx" />
     <Content Include="AR增强现实激活.aspx" />
     <Content Include="Booking.aspx" />
     <Content Include="CharacterDossier.aspx" />
+    <Content Include="Content\celestial-map-bg.jpg" />
     <Content Include="Content\site.css" />
     <Content Include="CreatorCenter.aspx" />
     <Content Include="Database\DramaMurder.sql" />
@@ -412,13 +452,16 @@
     <Content Include="Default.aspx" />
     <Content Include="Discover.aspx" />
     <Content Include="DmDashboard.aspx" />
+    <Content Include="DmScheduleDay.aspx" />
     <Content Include="Download.aspx" />
     <Content Include="FriendProfile.aspx" />
     <Content Include="Friends.aspx" />
     <Content Include="GameLobby.aspx" />
     <Content Include="GameResult.aspx" />
     <Content Include="GameRoom.aspx" />
+    <Content Include="VoteStatus.aspx" />
     <Content Include="GroupChat.aspx" />
+    <Content Include="RoomGroupChat.aspx" />
     <Content Include="Global.asax" />
     <Content Include="Login.aspx" />
     <Content Include="ForgotPassword.aspx" />
@@ -502,7 +545,7 @@
           <AutoAssignPort>True</AutoAssignPort>
           <DevelopmentServerPort>0</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:5090/</IISUrl>
+          <IISUrl>http://localhost:5101/</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>

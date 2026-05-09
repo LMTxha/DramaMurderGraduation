@@ -1,3 +1,6 @@
+-- 数据库重建脚本，用于删除并重新创建演示数据库，然后导入结构和模拟数据。
+-- 执行前请确认目标数据库和连接上下文，避免覆盖非演示环境数据。
+
 :setvar DatabaseName "DramaMurderGraduationDb"
 :setvar DatabaseDirectory "D:\毕业设计\dramamurder"
 :setvar SeedScript "D:\毕业设计\dramamurder\DramaMurderGraduation.Web\Database\DramaMurder.sql"

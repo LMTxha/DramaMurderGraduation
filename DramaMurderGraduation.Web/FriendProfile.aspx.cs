@@ -6,6 +6,9 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// FriendProfile.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class FriendProfilePage : System.Web.UI.Page
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
@@ -24,6 +27,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -42,6 +48,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnInviteFriend_Click(object sender, EventArgs e)
         {
             pnlInviteMessage.Visible = true;
@@ -58,6 +67,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindPage()
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -103,6 +115,9 @@ namespace DramaMurderGraduation.Web
             rptRecentMoments.DataBind();
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         public string GetAvatarUrl(object avatarUrl)
         {
             var value = Convert.ToString(avatarUrl)?.Trim();
@@ -124,6 +139,9 @@ namespace DramaMurderGraduation.Web
             return ResolveUrl("~/" + value.TrimStart('/'));
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         public IHtmlString RenderMomentImage(object imageUrl)
         {
             var value = Convert.ToString(imageUrl);
@@ -135,6 +153,9 @@ namespace DramaMurderGraduation.Web
             return new HtmlString("<img class=\"moment-image\" src=\"" + HttpUtility.HtmlAttributeEncode(value) + "\" alt=\"朋友圈图片\" />");
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         public IHtmlString RenderMomentLocation(object locationText)
         {
             var value = Convert.ToString(locationText);
@@ -146,6 +167,9 @@ namespace DramaMurderGraduation.Web
             return new HtmlString("<p class=\"chat-location\">打卡位置：" + HttpUtility.HtmlEncode(value) + "</p>");
         }
 
+        /// <summary>
+        /// 根据业务数据构造页面展示所需的视图模型。
+        /// </summary>
         private static PlayerProfileInfo BuildFallbackProfile(UserAccountInfo friendUser)
         {
             return new PlayerProfileInfo
@@ -163,6 +187,9 @@ namespace DramaMurderGraduation.Web
             };
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowInviteMessage(string message, bool success)
         {
             pnlInviteMessage.CssClass = success ? "status-message success" : "status-message error";

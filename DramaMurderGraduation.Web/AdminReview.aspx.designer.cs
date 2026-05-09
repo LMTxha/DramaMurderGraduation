@@ -20,6 +20,8 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litReservationCountSummary;
         protected global::System.Web.UI.WebControls.Panel pnlMessage;
         protected global::System.Web.UI.WebControls.Literal litMessage;
+        protected global::System.Web.UI.WebControls.Panel pnlScheduleMessage;
+        protected global::System.Web.UI.WebControls.Literal litScheduleMessage;
         protected global::System.Web.UI.WebControls.Repeater rptAdminTodoItems;
         protected global::System.Web.UI.WebControls.Repeater rptPendingUsers;
         protected global::System.Web.UI.WebControls.Repeater rptPendingRechargeRequests;
@@ -63,6 +65,8 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Repeater rptAdminReplyLogs;
         protected global::System.Web.UI.WebControls.Repeater rptBusinessActionLogs;
         protected global::System.Web.UI.WebControls.DropDownList ddlScheduleScript;
+        protected global::System.Web.UI.WebControls.Panel pnlScheduleInlineMessage;
+        protected global::System.Web.UI.WebControls.Literal litScheduleInlineMessage;
         protected global::System.Web.UI.WebControls.DropDownList ddlScheduleRoom;
         protected global::System.Web.UI.WebControls.TextBox txtScheduleDateTime;
         protected global::System.Web.UI.WebControls.TextBox txtScheduleHostName;

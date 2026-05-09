@@ -10,6 +10,10 @@ namespace DramaMurderGraduation.Web
     {
         protected global::System.Web.UI.WebControls.Panel pnlNotFound;
         protected global::System.Web.UI.WebControls.Panel pnlResult;
+        protected global::System.Web.UI.WebControls.PlaceHolder phResultDmLink;
+        protected global::System.Web.UI.WebControls.Literal litResultSideStage;
+        protected global::System.Web.UI.WebControls.Literal litResultSideReady;
+        protected global::System.Web.UI.WebControls.Literal litResultSideVote;
         protected global::System.Web.UI.WebControls.Literal litScriptName;
         protected global::System.Web.UI.WebControls.Literal litRoomName;
         protected global::System.Web.UI.WebControls.Literal litHostName;

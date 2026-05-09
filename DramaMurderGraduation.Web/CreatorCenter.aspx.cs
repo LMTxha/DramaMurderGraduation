@@ -5,10 +5,16 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// CreatorCenter.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class CreatorCenterPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -23,6 +29,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnSubmitScript_Click(object sender, EventArgs e)
         {
             pnlMessage.Visible = true;
@@ -85,6 +94,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         public string TranslateAuditStatus(object value)
         {
             var status = Convert.ToString(value);
@@ -99,6 +111,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindGenres()
         {
             ddlGenres.Items.Clear();
@@ -108,6 +123,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindMyScripts()
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -115,6 +133,9 @@ namespace DramaMurderGraduation.Web
             rptMyScripts.DataBind();
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowMessage(string message, bool success)
         {
             pnlMessage.CssClass = success ? "status-message success" : "status-message error";

@@ -10,17 +10,27 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 后台审核中心页面。
+    /// 聚合账号审核、充值审核、预约处理、售后、评价、剧本投稿、角色权限和财务导出等后台工作流。
+    /// </summary>
     public partial class AdminReviewPage : System.Web.UI.Page
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
         private readonly ContentRepository _contentRepository = new ContentRepository();
+        private bool _isSchedulePostBack;
         protected bool CanManageMembers { get; private set; }
         protected bool CanManageFinance { get; private set; }
         protected bool CanManageOperations { get; private set; }
         protected bool CanManageContent { get; private set; }
 
+        /// <summary>
+        /// 加载后台页面。
+        /// 先校验后台访问权限，再根据角色能力开关决定哪些模块可操作。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
+            MaintainScrollPositionOnPostBack = true;
             AuthManager.RequireAdminConsole();
             ApplyCapabilityState();
 
@@ -56,6 +66,9 @@ namespace DramaMurderGraduation.Web
             BindAll();
         }
 
+        /// <summary>
+        /// 处理用户审核、拒绝和角色更新命令。
+        /// </summary>
         protected void rptPendingUsers_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
             if (!EnsureCapability(CanManageMembers, "当前账号不能处理账号审核和角色管理。"))
@@ -82,8 +95,12 @@ namespace DramaMurderGraduation.Web
             }
             ShowMessage(message, success);
             BindAll();
+            KeepAdminSectionInView("store-requests");
         }
 
+        /// <summary>
+        /// 处理剧本投稿审核命令。
+        /// </summary>
         protected void rptPendingScripts_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
             if (!EnsureCapability(CanManageContent, "当前账号不能处理剧本审核。"))
@@ -102,6 +119,9 @@ namespace DramaMurderGraduation.Web
             BindAll();
         }
 
+        /// <summary>
+        /// 处理充值审核命令。
+        /// </summary>
         protected void rptPendingRechargeRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
             if (!EnsureCapability(CanManageFinance, "当前账号不能处理充值审核。"))
@@ -178,6 +198,20 @@ namespace DramaMurderGraduation.Web
             var currentUser = AuthManager.GetCurrentUser();
             var remarkBox = e.Item.FindControl("txtReservationRemark") as TextBox;
             var replyBox = e.Item.FindControl("txtReservationReply") as TextBox;
+
+            if (string.Equals(e.CommandName, "DeleteReservation", StringComparison.OrdinalIgnoreCase))
+            {
+                var deleteSuccess = _contentRepository.DeleteTerminalReservation(
+                    reservationId,
+                    currentUser == null ? 0 : currentUser.UserId,
+                    out var deleteMessage);
+
+                ShowMessage(deleteMessage, deleteSuccess);
+                BindAll();
+                KeepAdminSectionInView("reservation-orders");
+                return;
+            }
+
             var reservationStatus = MapReservationStatus(e.CommandName);
 
             if (string.IsNullOrWhiteSpace(reservationStatus))
@@ -196,6 +230,7 @@ namespace DramaMurderGraduation.Web
 
             ShowMessage(message, success);
             BindAll();
+            KeepAdminSectionInView("reservation-orders");
         }
 
         protected void rptAfterSaleRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
@@ -378,6 +413,8 @@ namespace DramaMurderGraduation.Web
 
         protected void btnCreateSession_Click(object sender, EventArgs e)
         {
+            _isSchedulePostBack = true;
+
             if (!EnsureCapability(CanManageOperations, "当前账号不能创建排期场次。"))
             {
                 return;
@@ -606,6 +643,32 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        protected bool IsTerminalReservationStatus(object value)
+        {
+            var status = Convert.ToString(value);
+            return string.Equals(status, "已取消", StringComparison.Ordinal)
+                   || string.Equals(status, "已完成", StringComparison.Ordinal);
+        }
+
+        protected bool IsDeletableReservationStatus(object value)
+        {
+            return IsTerminalReservationStatus(value);
+        }
+
+        protected bool IsLockedReservationStatus(object value)
+        {
+            var status = Convert.ToString(value);
+            return IsTerminalReservationStatus(value)
+                   || string.Equals(status, "已到店", StringComparison.Ordinal);
+        }
+
+        protected bool IsLockedStoreVisitStatus(object value)
+        {
+            var status = Convert.ToString(value);
+            return string.Equals(status, "已关闭", StringComparison.Ordinal)
+                   || string.Equals(status, "已到店完成", StringComparison.Ordinal);
+        }
+
         public string DisplayAuditStatus(object value)
         {
             var status = Convert.ToString(value);
@@ -743,8 +806,19 @@ namespace DramaMurderGraduation.Web
             var pendingScripts = _contentRepository.GetPendingScriptSubmissions();
             var keyword = txtAdminKeyword == null ? string.Empty : txtAdminKeyword.Text.Trim();
             var dateFilter = GetSelectedValue(ddlAdminDateFilter);
-            var storeVisitRequests = _contentRepository.GetStoreVisitRequests(30, null, GetSelectedValue(ddlStoreStatusFilter), keyword, dateFilter);
-            var reservationOrders = _contentRepository.GetReservationsForAdmin(30, GetSelectedValue(ddlReservationStatusFilter), keyword, dateFilter);
+            var storeVisitRequests = _contentRepository.GetStoreVisitRequests(
+                30,
+                null,
+                GetSelectedValue(ddlStoreStatusFilter),
+                keyword,
+                dateFilter,
+                activeOnlyWhenUnfiltered: true);
+            var reservationOrders = _contentRepository.GetReservationsForAdmin(
+                30,
+                GetSelectedValue(ddlReservationStatusFilter),
+                keyword,
+                dateFilter,
+                activeOnlyWhenUnfiltered: true);
             var allStoreVisitRequests = _contentRepository.GetStoreVisitRequests(999);
             var allReservationOrders = _contentRepository.GetReservationsForAdmin(999);
             var allScripts = _contentRepository.GetAllScriptsForAdmin();
@@ -918,6 +992,44 @@ namespace DramaMurderGraduation.Web
             pnlMessage.Visible = true;
             pnlMessage.CssClass = success ? "status-message success" : "status-message error";
             litMessage.Text = message;
+
+            if (_isSchedulePostBack)
+            {
+                ShowScheduleMessage(message, success);
+            }
+        }
+
+        private void ShowScheduleMessage(string message, bool success)
+        {
+            var cssClass = success ? "status-message success schedule-message" : "status-message error schedule-message";
+
+            pnlScheduleMessage.Visible = true;
+            pnlScheduleMessage.CssClass = cssClass;
+            litScheduleMessage.Text = message;
+
+            pnlScheduleInlineMessage.Visible = true;
+            pnlScheduleInlineMessage.CssClass = cssClass;
+            litScheduleInlineMessage.Text = message;
+
+            KeepAdminSectionInView("room-session-admin");
+        }
+
+        private void KeepAdminSectionInView(string sectionId)
+        {
+            if (string.IsNullOrWhiteSpace(sectionId))
+            {
+                return;
+            }
+
+            var script = @"
+window.setTimeout(function () {
+    var target = document.getElementById('" + sectionId.Replace("'", "\\'") + @"');
+    if (target) {
+        target.scrollIntoView({ block: 'start' });
+    }
+}, 0);";
+
+            ClientScript.RegisterStartupScript(GetType(), "keep-" + sectionId, script, true);
         }
 
         private void ExportFinanceAuditCsv()

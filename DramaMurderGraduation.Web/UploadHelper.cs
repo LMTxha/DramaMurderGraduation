@@ -6,8 +6,13 @@ using System.Web.UI.WebControls;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 统一处理 Web Forms 文件上传的辅助类。
+    /// 负责校验附件类型和大小，并把文件保存到按业务分类和月份划分的 Uploads 目录。
+    /// </summary>
     public static class UploadHelper
     {
+        // 只允许项目页面实际会展示或下载的常见图片、音视频和文档格式，降低误传可执行文件的风险。
         private static readonly string[] AllowedExtensions =
         {
             ".jpg", ".jpeg", ".png", ".gif", ".webp",
@@ -15,6 +20,10 @@ namespace DramaMurderGraduation.Web
             ".pdf", ".doc", ".docx", ".txt"
         };
 
+        /// <summary>
+        /// 尝试保存上传控件中的文件。
+        /// 没有选择文件时视为成功；校验失败时返回 false，并通过 error 给出页面可展示的错误原因。
+        /// </summary>
         public static bool TrySave(FileUpload upload, string category, out string relativeUrl, out string error)
         {
             relativeUrl = string.Empty;

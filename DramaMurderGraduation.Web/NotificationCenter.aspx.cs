@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.UI.WebControls;
@@ -7,10 +7,16 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// NotificationCenter.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class NotificationCenterPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -22,11 +28,17 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         public void btnApplyNotificationFilter_Click(object sender, EventArgs e)
         {
             BindPage();
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnMarkAllRead_Click(object sender, EventArgs e)
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -41,6 +53,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         public void rptNotifications_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
             if (!string.Equals(e.CommandName, "MarkRead", StringComparison.OrdinalIgnoreCase))
@@ -66,6 +81,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindPage()
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -87,11 +105,15 @@ namespace DramaMurderGraduation.Web
                 : string.Empty;
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindFilterOptions()
         {
             ddlNotificationFilter.Items.Clear();
             ddlNotificationFilter.Items.Add(new ListItem("全部通知", "All"));
             ddlNotificationFilter.Items.Add(new ListItem("仅看未读", "Unread"));
+            ddlNotificationFilter.Items.Add(new ListItem("近 24 小时", "Recent"));
             ddlNotificationFilter.Items.Add(new ListItem("订单回复", "订单回复"));
             ddlNotificationFilter.Items.Add(new ListItem("客服会话", "客服会话"));
             ddlNotificationFilter.Items.Add(new ListItem("优惠券", "优惠券"));
@@ -109,12 +131,17 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         private IList<UserNotificationInfo> ApplyFilter(IList<UserNotificationInfo> notifications)
         {
             switch (ddlNotificationFilter.SelectedValue ?? "All")
             {
                 case "Unread":
                     return notifications.Where(item => !item.IsRead).ToList();
+                case "Recent":
+                    return notifications.Where(item => item.CreatedAt >= DateTime.Now.AddHours(-24)).ToList();
                 case "订单回复":
                 case "客服会话":
                 case "优惠券":
@@ -128,6 +155,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowMessage(string message, bool success)
         {
             pnlMessage.Visible = true;

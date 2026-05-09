@@ -1,0 +1,12 @@
+<view class="page">
+  <view class="card">
+    <picker mode="selector" range="{{sessions}}" range-key="Label" value="{{sessionIndex}}" bindchange="pickSession">
+      <view class="picker">{{sessions[sessionIndex].Label || '选择预约场次'}}</view>
+    </picker>
+    <input class="input" placeholder="联系人" value="{{form.contactName}}" data-field="contactName" bindinput="input" />
+    <input class="input" placeholder="联系电话" value="{{form.phone}}" data-field="phone" bindinput="input" />
+    <input class="input" type="number" placeholder="预约人数" value="{{form.playerCount}}" data-field="playerCount" bindinput="input" />
+    <textarea class="textarea" placeholder="备注需求" value="{{form.remark}}" data-field="remark" bindinput="input"></textarea>
+    <button class="button" bindtap="submit">提交预约</button>
+  </view>
+</view>

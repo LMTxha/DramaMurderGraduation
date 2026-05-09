@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="hero card">
+    <view class="hero-title">{{settings.HeroTitle || settings.SiteName || '雾城剧本研究所'}}</view>
+    <view class="hero-subtitle">{{settings.HeroSubtitle || '沉浸式剧本杀预约与玩家服务平台'}}</view>
+    <button class="button" bindtap="goScripts">浏览剧本</button>
+  </view>
+
+  <view class="stats">
+    <view class="stat"><text>{{metrics.ScriptCount || 0}}</text><text>剧本</text></view>
+    <view class="stat"><text>{{metrics.RoomCount || 0}}</text><text>房间</text></view>
+    <view class="stat"><text>{{metrics.AverageRating || 0}}</text><text>评分</text></view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">精选剧本</view>
+    <view wx:for="{{featuredScripts}}" wx:key="Id" class="script-row card" data-id="{{item.Id}}" bindtap="openDetail">
+      <image class="cover" mode="aspectFill" src="{{item.CoverImage || '/assets/cover-placeholder.png'}}"></image>
+      <view class="script-body">
+        <view class="script-title">{{item.Name}}</view>
+        <view class="muted">{{item.GenreName}} · {{item.PlayerMin}}-{{item.PlayerMax}}人 · {{item.DurationMinutes}}分钟</view>
+        <view class="tag">{{item.Difficulty || '沉浸'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">近期场次</view>
+    <view wx:for="{{sessions}}" wx:key="Id" class="card session-row">
+      <view>
+        <view class="script-title">{{item.ScriptName}}</view>
+        <view class="muted">{{item.RoomName}} · {{item.HostName || '待定DM'}}</view>
+      </view>
+      <view class="session-side">
+        <view>{{item.RemainingSeats}}席</view>
+        <view class="muted">{{item.SessionDateTimeText}}</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,14 +1,20 @@
-﻿using System;
+using System;
 using System.Linq;
 using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// GameResult.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class GameResultPage : System.Web.UI.Page
     {
         private readonly ContentRepository _contentRepository = new ContentRepository();
         private readonly GameRepository _gameRepository = new GameRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -19,6 +25,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindResult()
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -48,12 +57,13 @@ namespace DramaMurderGraduation.Web
             {
                 canSeeTruth = true;
             }
+            BindSideNavigation(currentUser, gameState);
 
             pnlNotFound.Visible = false;
             pnlResult.Visible = true;
 
             litScriptName.Text = reservation.ScriptName;
-            litRoomName.Text = reservation.RoomName;
+            litRoomName.Text = RoomNavigationHelper.RenderRoomSelectLink(reservation);
             litHostName.Text = reservation.HostName;
             litReservationId.Text = reservation.Id.ToString();
             litRoomCode.Text = "ROOM-" + reservation.SessionId.ToString("D4");
@@ -88,6 +98,58 @@ namespace DramaMurderGraduation.Web
             rptAssignments.DataBind();
         }
 
+        /// <summary>
+        /// 绑定结案页左侧房间功能导航的状态提示。
+        /// </summary>
+        private void BindSideNavigation(Models.CurrentUserInfo currentUser, Models.GameRoomStateInfo gameState)
+        {
+            var lifecycle = gameState.Lifecycle;
+            litResultSideStage.Text = gameState.CurrentStage == null ? "阶段同步中" : gameState.CurrentStage.StageName;
+            litResultSideReady.Text = lifecycle == null
+                ? "就位 0/0"
+                : "就位 " + lifecycle.ReadyCount + "/" + lifecycle.TotalAssignments;
+            litResultSideVote.Text = lifecycle == null
+                ? "投票 0/0"
+                : "投票 " + lifecycle.VoteCount + "/" + lifecycle.TotalAssignments;
+            phResultDmLink.Visible = currentUser != null && currentUser.CanManageGameRoom;
+        }
+
+        protected string ResultFeatureUrl(string featureKey)
+        {
+            var key = (featureKey ?? string.Empty).Trim().ToLowerInvariant();
+            var reservationId = Request.QueryString["reservationId"];
+            if (string.IsNullOrWhiteSpace(reservationId))
+            {
+                return "GameRoom.aspx";
+            }
+
+            var reservationQuery = "reservationId=" + Server.UrlEncode(reservationId);
+            switch (key)
+            {
+                case "character":
+                    return "CharacterDossier.aspx?" + reservationQuery;
+                case "ending":
+                    return "GameResult.aspx?" + reservationQuery;
+                case "chat":
+                    return "RoomGroupChat.aspx?" + reservationQuery;
+                case "vote-status":
+                    return "VoteStatus.aspx?" + reservationQuery;
+                case "stage":
+                case "clue":
+                case "action":
+                case "vote":
+                case "participants":
+                case "media":
+                case "host":
+                    return "GameRoom.aspx?" + reservationQuery + "&module=" + Server.UrlEncode(key);
+                default:
+                    return "GameRoom.aspx?" + reservationQuery;
+            }
+        }
+
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowNotFound()
         {
             pnlResult.Visible = false;

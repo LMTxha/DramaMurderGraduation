@@ -15,6 +15,7 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.TextBox txtReservationRescheduleRemark;
         protected global::System.Web.UI.WebControls.Button btnConfirmReservationReceived;
         protected global::System.Web.UI.WebControls.Button btnRequestReservationReschedule;
+        protected global::System.Web.UI.WebControls.LinkButton btnLeaveReservation;
         protected global::System.Web.UI.WebControls.Literal litReservationId;
         protected global::System.Web.UI.WebControls.Literal litContactName;
         protected global::System.Web.UI.WebControls.Literal litSessionTime;

@@ -7,7 +7,7 @@
     <title>
         <asp:ContentPlaceHolder ID="TitleContent" runat="server" />
     </title>
-    <link rel="stylesheet" href="Content/site.css?v=20260424-demo-reset" />
+    <link rel="stylesheet" href="Content/site.css?v=20260509-elimination" />
 </head>
 <body>
 <form id="MainForm" runat="server" enctype="multipart/form-data">
@@ -21,7 +21,18 @@
             <div class="container site-header-shell">
                 <div class="header-row">
                     <a class="brand" href="Default.aspx">
-                        <span class="brand-mark">DM</span>
+                        <span class="brand-mark dm-logo" aria-label="DM">
+                            <svg class="dm-logo-svg" viewBox="0 0 128 82" aria-hidden="true" focusable="false">
+                                <path class="dm-logo-stroke dm-logo-red" d="M18 64 V18" />
+                                <path class="dm-logo-stroke dm-logo-orange" d="M18 18 H43 C57 18 67 27 67 41" />
+                                <path class="dm-logo-stroke dm-logo-cyan" d="M67 41 C67 56 56 64 42 64 H18" />
+                                <path class="dm-logo-stroke dm-logo-green" d="M80 64 V18 L97 46" />
+                                <path class="dm-logo-stroke dm-logo-yellow" d="M97 46 L114 18 V64" />
+                                <circle class="dm-logo-dot dm-logo-orange-fill" cx="43" cy="18" r="4" />
+                                <circle class="dm-logo-dot dm-logo-cyan-fill" cx="67" cy="64" r="4" />
+                                <circle class="dm-logo-dot dm-logo-green-fill" cx="80" cy="18" r="4" />
+                            </svg>
+                        </span>
                         <span class="brand-copy">
                             <strong><asp:Literal ID="litSiteName" runat="server" /></strong>
                             <small>沉浸式剧本杀聚场</small>
@@ -62,6 +73,9 @@
                         <a href="https://www.douyin.com">抖音入口</a>
                         <a href="ScriptsList.aspx">剧本库</a>
                         <a href="Rooms.aspx">房间场次</a>
+                        <asp:PlaceHolder ID="phMyRoomsNav" runat="server" Visible="false">
+                            <a href="PlayerHub.aspx?tab=orders">我的房间</a>
+                        </asp:PlaceHolder>
                         <a href="Booking.aspx">在线预约</a>
                         <a class="site-nav-takeaway" href="<%= TakeawayUrl %>">外卖</a>
                         <a href="StoreContact.aspx">门店联系</a>
@@ -82,6 +96,8 @@
                         <asp:PlaceHolder ID="phAdmin" runat="server" Visible="false">
                             <asp:HyperLink ID="lnkAnalyticsNav" runat="server" NavigateUrl="Analytics.aspx" Text="数据分析" />
                             <asp:HyperLink ID="lnkAdminReviewNav" runat="server" NavigateUrl="AdminReview.aspx" Text="后台审核" />
+                            <a href="AdminReview.aspx#room-session-admin">安排排期</a>
+                            <asp:HyperLink ID="lnkAdminScriptOccupancyNav" runat="server" NavigateUrl="AdminScriptOccupancy.aspx" Text="剧本占用" />
                         </asp:PlaceHolder>
                         <asp:PlaceHolder ID="phDm" runat="server" Visible="false">
                             <a href="DmDashboard.aspx">DM 主持台</a>
@@ -117,7 +133,18 @@
         <footer class="site-footer">
             <div class="container footer-shell">
                 <section class="footer-brand">
-                    <div class="brand-mark footer-mark">DM</div>
+                    <div class="brand-mark footer-mark dm-logo" aria-label="DM">
+                        <svg class="dm-logo-svg" viewBox="0 0 128 82" aria-hidden="true" focusable="false">
+                            <path class="dm-logo-stroke dm-logo-red" d="M18 64 V18" />
+                            <path class="dm-logo-stroke dm-logo-orange" d="M18 18 H43 C57 18 67 27 67 41" />
+                            <path class="dm-logo-stroke dm-logo-cyan" d="M67 41 C67 56 56 64 42 64 H18" />
+                            <path class="dm-logo-stroke dm-logo-green" d="M80 64 V18 L97 46" />
+                            <path class="dm-logo-stroke dm-logo-yellow" d="M97 46 L114 18 V64" />
+                            <circle class="dm-logo-dot dm-logo-orange-fill" cx="43" cy="18" r="4" />
+                            <circle class="dm-logo-dot dm-logo-cyan-fill" cx="67" cy="64" r="4" />
+                            <circle class="dm-logo-dot dm-logo-green-fill" cx="80" cy="18" r="4" />
+                        </svg>
+                    </div>
                     <div>
                         <h3><asp:Literal ID="litFooterSiteName" runat="server" /></h3>
                         <p>围绕选本、组局、预约、观战、好友互动和线下到店开本打造的沉浸式剧本杀空间。</p>
@@ -143,7 +170,7 @@
         </footer>
     </form>
 
-    <script src="Scripts/site.js?v=20260424-room-live-sync"></script>
+    <script src="Scripts/site.js?v=20260509-elimination"></script>
 </body>
 </html>
 

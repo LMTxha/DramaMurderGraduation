@@ -1,4 +1,7 @@
-﻿param(
+# 导入真实剧本素材的批处理工具。
+# 负责扫描剧本文档和资源文件并写入项目可识别的目录或数据库记录。
+
+param(
     [Parameter(Mandatory = $true)]
     [string]$SourceRoot,
 

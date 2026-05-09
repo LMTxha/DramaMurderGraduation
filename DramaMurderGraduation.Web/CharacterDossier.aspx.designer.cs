@@ -10,6 +10,10 @@ namespace DramaMurderGraduation.Web
     {
         protected global::System.Web.UI.WebControls.Panel pnlNotFound;
         protected global::System.Web.UI.WebControls.Panel pnlDossier;
+        protected global::System.Web.UI.WebControls.PlaceHolder phDossierDmLink;
+        protected global::System.Web.UI.WebControls.Literal litDossierSideStage;
+        protected global::System.Web.UI.WebControls.Literal litDossierSideReady;
+        protected global::System.Web.UI.WebControls.Literal litDossierSideVote;
         protected global::System.Web.UI.WebControls.Literal litScriptName;
         protected global::System.Web.UI.WebControls.Literal litCharacterName;
         protected global::System.Web.UI.WebControls.Literal litRoomName;
@@ -18,6 +22,10 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litStageName;
         protected global::System.Web.UI.WebControls.Literal litGuideTitle;
         protected global::System.Web.UI.WebControls.Literal litGuideSummary;
+        protected global::System.Web.UI.WebControls.Literal litGuideClueCount;
+        protected global::System.Web.UI.WebControls.Literal litGuideActionCount;
+        protected global::System.Web.UI.WebControls.HyperLink lnkGuidePrimary;
+        protected global::System.Web.UI.WebControls.HyperLink lnkGuideSecondary;
         protected global::System.Web.UI.WebControls.Literal litReadyStatus;
         protected global::System.Web.UI.WebControls.Literal litRoleName;
         protected global::System.Web.UI.WebControls.Literal litCharacterDescription;

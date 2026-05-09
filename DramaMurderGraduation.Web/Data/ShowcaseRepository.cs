@@ -5,8 +5,16 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web.Data
 {
+    /// <summary>
+    /// 动态功能展示页仓储。
+    /// 多个中文功能页共用 FeatureShowcasePage 基类，页面内容从 ShowcasePages/Sections/Entries/Stats 表读取。
+    /// </summary>
     public class ShowcaseRepository
     {
+        /// <summary>
+        /// 按页面 key 读取完整展示页配置。
+        /// pageKey 通常来自 aspx 文件名。
+        /// </summary>
         public ShowcasePageInfo GetPage(string pageKey)
         {
             const string pageSql = @"
@@ -167,11 +175,13 @@ ORDER BY SortOrder ASC, Id ASC;", connection))
             return page;
         }
 
+        /// <summary>读取字符串字段，NULL 转空字符串。</summary>
         private static string GetString(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? string.Empty : Convert.ToString(reader[columnName]);
         }
 
+        /// <summary>读取整数字段。</summary>
         private static int GetInt32(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? 0 : Convert.ToInt32(reader[columnName]);

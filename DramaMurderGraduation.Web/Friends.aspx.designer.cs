@@ -54,6 +54,8 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Button btnSendGameInvite;
         protected global::System.Web.UI.WebControls.DropDownList ddlChatMessageType;
         protected global::System.Web.UI.WebControls.HiddenField hdnChatMoneyType;
+        protected global::System.Web.UI.WebControls.HiddenField hdnChatInlineFileData;
+        protected global::System.Web.UI.WebControls.HiddenField hdnChatInlineFileName;
         protected global::System.Web.UI.WebControls.TextBox txtChatMoneyAmount;
         protected global::System.Web.UI.WebControls.TextBox txtChatMoneyNote;
         protected global::System.Web.UI.WebControls.Button btnSendChatMoney;

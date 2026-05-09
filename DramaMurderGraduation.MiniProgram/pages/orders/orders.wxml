@@ -1,0 +1,17 @@
+<view class="page">
+  <view wx:if="{{!loggedIn}}" class="card empty">
+    <view>登录后查看预约订单</view>
+    <button class="button" bindtap="goProfile">去登录</button>
+  </view>
+
+  <view wx:for="{{orders}}" wx:key="Id" class="card order">
+    <view class="order-head">
+      <view class="script-title">{{item.ScriptName}}</view>
+      <view class="tag">{{item.Status}}</view>
+    </view>
+    <view class="muted">{{item.RoomName}} · {{item.HostName || '待定DM'}}</view>
+    <view class="muted">联系人：{{item.ContactName}} · {{item.PlayerCount}}人</view>
+    <view class="amount">￥{{item.TotalAmount}}</view>
+    <button wx:if="{{item.ConfirmStatus !== '玩家已确认'}}" class="button ghost-button" data-id="{{item.Id}}" bindtap="confirm">确认到店</button>
+  </view>
+</view>

@@ -5,8 +5,15 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web.Data
 {
+    /// <summary>
+    /// 好友工作区的群聊、便签、桌面偏好和扩展个人资料仓储。
+    /// 与 AccountRepository 的私聊/好友关系不同，这里主要处理工作台式社交协作功能。
+    /// </summary>
     public class FriendWorkspaceRepository
     {
+        /// <summary>
+        /// 获取用户加入的群聊列表，包含成员数、最后消息、未读数和会话偏好。
+        /// </summary>
         public IList<ChatGroupInfo> GetChatGroups(int userId)
         {
             const string sql = @"
@@ -90,6 +97,9 @@ ORDER BY ISNULL(pref.IsPinned, 0) DESC, latest.LastMessageAt DESC, g.Id DESC;";
             return results;
         }
 
+        /// <summary>
+        /// 在当前用户可见的群聊中查找指定群。
+        /// </summary>
         public ChatGroupInfo GetChatGroupById(int userId, int groupId)
         {
             foreach (var item in GetChatGroups(userId))
@@ -103,6 +113,10 @@ ORDER BY ISNULL(pref.IsPinned, 0) DESC, latest.LastMessageAt DESC, g.Id DESC;";
             return null;
         }
 
+        /// <summary>
+        /// 获取群成员列表。
+        /// 查询中会校验当前用户属于该群，避免越权查看成员。
+        /// </summary>
         public IList<ChatGroupMemberInfo> GetChatGroupMembers(int userId, int groupId)
         {
             const string sql = @"
@@ -150,6 +164,10 @@ ORDER BY CASE WHEN g.OwnerUserId = gm.UserId THEN 0 ELSE 1 END, gm.JoinedAt ASC,
             return results;
         }
 
+        /// <summary>
+        /// 获取群聊消息。
+        /// 只有群成员可以读取该群消息。
+        /// </summary>
         public IList<ChatWorkspaceMessageInfo> GetChatGroupMessages(int userId, int groupId, int top)
         {
             const string sql = @"
@@ -207,6 +225,10 @@ ORDER BY msg.CreatedAt ASC, msg.Id ASC;";
             return results;
         }
 
+        /// <summary>
+        /// 创建群聊。
+        /// 群主会自动加入成员列表，传入的 memberUserIds 会去重后写入。
+        /// </summary>
         public bool CreateChatGroup(int ownerUserId, string groupName, string announcement, IList<int> memberUserIds, out string message)
         {
             if (string.IsNullOrWhiteSpace(groupName))
@@ -301,6 +323,10 @@ SELECT @GroupId;";
             }
         }
 
+        /// <summary>
+        /// 发送群聊消息。
+        /// 支持文本、图片、位置等类型，类型会先规范化。
+        /// </summary>
         public bool SendGroupMessage(int senderUserId, int groupId, string messageType, string content, string attachmentUrl, string locationText, out string message)
         {
             const string sql = @"
@@ -345,6 +371,9 @@ VALUES(@GroupId, @SenderUserId, @MessageType, NULLIF(@Content, N''), NULLIF(@Att
             }
         }
 
+        /// <summary>
+        /// 将群聊会话标记为已读。
+        /// </summary>
         public void MarkGroupConversationAsRead(int userId, int groupId)
         {
             const string sql = @"
@@ -383,6 +412,10 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 保存群聊置顶、隐藏、免打扰偏好。
+        /// bool? 代表只更新调用方传入的开关。
+        /// </summary>
         public bool SetGroupConversationPreference(int userId, int groupId, bool? isPinned, bool? isHidden, bool? isMuted, out string message)
         {
             const string sql = @"
@@ -431,6 +464,9 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 获取用户快捷便签。
+        /// </summary>
         public IList<QuickNoteInfo> GetQuickNotes(int userId, int top)
         {
             const string sql = @"
@@ -472,6 +508,9 @@ ORDER BY UpdatedAt DESC, Id DESC;";
             return results;
         }
 
+        /// <summary>
+        /// 创建快捷便签。
+        /// </summary>
         public bool CreateQuickNote(int userId, string title, string content, out string message)
         {
             if (string.IsNullOrWhiteSpace(title))
@@ -511,6 +550,9 @@ VALUES(@UserId, @Title, @Content, GETDATE(), GETDATE());";
             }
         }
 
+        /// <summary>
+        /// 删除自己的快捷便签。
+        /// </summary>
         public bool DeleteQuickNote(int userId, int noteId, out string message)
         {
             const string sql = @"
@@ -543,6 +585,9 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 获取用户桌面偏好，例如主题、布局和快捷入口。
+        /// </summary>
         public UserDesktopSettingsInfo GetDesktopSettings(int userId)
         {
             const string sql = @"
@@ -607,6 +652,9 @@ WHERE UserId = @UserId;";
             }
         }
 
+        /// <summary>
+        /// 保存用户桌面偏好。
+        /// </summary>
         public bool SaveDesktopSettings(int userId, UserDesktopSettingsInfo settings, out string message)
         {
             const string sql = @"
@@ -671,6 +719,10 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 获取扩展个人资料设置。
+        /// 包含性别、地区、签名等好友主页会展示的字段。
+        /// </summary>
         public UserSettingsInfo GetExtendedUserSettings(int userId)
         {
             const string sql = @"
@@ -720,6 +772,9 @@ WHERE u.Id = @UserId;";
             }
         }
 
+        /// <summary>
+        /// 保存扩展个人资料，并记录变更摘要。
+        /// </summary>
         public bool UpdateExtendedUserSettings(int userId, string displayName, string phone, string avatarUrl, string publicUserCode, string gender, string region, string signature, out string message)
         {
             if (string.IsNullOrWhiteSpace(displayName))
@@ -796,6 +851,9 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 获取最近个人资料变更日志。
+        /// </summary>
         public IList<ProfileChangeLogInfo> GetRecentProfileChangeLogs(int userId, int top)
         {
             const string sql = @"
@@ -837,6 +895,9 @@ ORDER BY ChangedAt DESC, Id DESC;";
             return results;
         }
 
+        /// <summary>
+        /// 写入个人资料变更日志。
+        /// </summary>
         private void InsertProfileChangeLog(int userId, string beforeValue, string afterValue)
         {
             if (string.Equals(beforeValue, afterValue, StringComparison.Ordinal))
@@ -859,6 +920,9 @@ VALUES(@UserId, N'Profile', @BeforeValue, @AfterValue, GETDATE());";
             }
         }
 
+        /// <summary>
+        /// 将个人资料模型压缩为一段便于比较和记录的摘要。
+        /// </summary>
         private static string BuildProfileChangeSummary(UserSettingsInfo settings)
         {
             if (settings == null)
@@ -875,6 +939,9 @@ VALUES(@UserId, N'Profile', @BeforeValue, @AfterValue, GETDATE());";
                 + "；签名：" + NullToEmpty(settings.Signature);
         }
 
+        /// <summary>
+        /// 规范群聊消息类型。
+        /// </summary>
         private static string NormalizeMessageType(string messageType)
         {
             if (string.IsNullOrWhiteSpace(messageType))
@@ -894,6 +961,9 @@ VALUES(@UserId, N'Profile', @BeforeValue, @AfterValue, GETDATE());";
             }
         }
 
+        /// <summary>
+        /// 根据群名生成默认头像文本。
+        /// </summary>
         private static string BuildGroupAvatar(string groupName)
         {
             var seed = Math.Abs((groupName ?? "Group").GetHashCode()) % 5;
@@ -912,6 +982,9 @@ VALUES(@UserId, N'Profile', @BeforeValue, @AfterValue, GETDATE());";
             }
         }
 
+        /// <summary>
+        /// 将 null 转为空字符串，减少数据库参数传值时的空判断。
+        /// </summary>
         private static string NullToEmpty(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();

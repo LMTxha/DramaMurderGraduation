@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +8,9 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// OrderDetails.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class OrderDetailsPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
@@ -15,6 +18,9 @@ namespace DramaMurderGraduation.Web
         protected int ReservationId { get; private set; }
         protected bool HasReview { get; private set; }
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -25,6 +31,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindPage()
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -53,8 +62,11 @@ namespace DramaMurderGraduation.Web
             litScriptName.Text = Server.HtmlEncode(reservation.ScriptName);
             litOrderStatus.Text = Server.HtmlEncode(reservation.Status);
             litSessionTime.Text = reservation.SessionDateTime.ToString("yyyy-MM-dd HH:mm");
-            litRoomName.Text = Server.HtmlEncode(string.IsNullOrWhiteSpace(reservation.RoomName) ? "待安排" : reservation.RoomName);
+            litRoomName.Text = RoomNavigationHelper.RenderRoomSelectLink(reservation);
+            litRoomCode.Text = "ROOM-" + reservation.SessionId.ToString("D4");
             litHostName.Text = Server.HtmlEncode(string.IsNullOrWhiteSpace(reservation.HostName) ? "待分配" : reservation.HostName);
+            lnkGameRoom.NavigateUrl = "GameRoom.aspx?reservationId=" + reservation.Id;
+            btnLeaveReservation.Visible = !currentUser.IsAdmin && CanLeaveReservation(reservation.Status);
             lnkLobby.NavigateUrl = "GameLobby.aspx?reservationId=" + reservation.Id;
             lnkConversation.NavigateUrl = "OrderConversation.aspx?reservationId=" + reservation.Id;
             lnkConversationInline.NavigateUrl = "OrderConversation.aspx?reservationId=" + reservation.Id;
@@ -116,6 +128,22 @@ namespace DramaMurderGraduation.Web
             rptAfterSaleRequests.DataBind();
         }
 
+        protected void btnLeaveReservation_Click(object sender, EventArgs e)
+        {
+            var currentUser = AuthManager.GetCurrentUser();
+            if (currentUser == null || currentUser.IsAdmin || !TryGetReservationId(out var reservationId))
+            {
+                ShowNotFound();
+                return;
+            }
+
+            _repository.LeaveReservationByPlayer(reservationId, currentUser.UserId, out var message);
+            Response.Redirect("~/PlayerHub.aspx?tab=orders", true);
+        }
+
+        /// <summary>
+        /// 根据业务数据构造页面展示所需的视图模型。
+        /// </summary>
         private static IList<TimelineNode> BuildTimeline(ReservationInfo reservation)
         {
             return new List<TimelineNode>
@@ -130,6 +158,9 @@ namespace DramaMurderGraduation.Web
             };
         }
 
+        /// <summary>
+        /// 保存或提交当前页面收集到的业务数据。
+        /// </summary>
         private static TimelineNode CreateNode(string title, DateTime? time, bool isActive, string summary)
         {
             return new TimelineNode
@@ -140,6 +171,9 @@ namespace DramaMurderGraduation.Web
             };
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         protected string GetServiceMessageRoleText(object senderRole)
         {
             return string.Equals(Convert.ToString(senderRole), "Admin", StringComparison.OrdinalIgnoreCase)
@@ -147,6 +181,9 @@ namespace DramaMurderGraduation.Web
                 : "玩家";
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         protected string RenderTextLine(string prefix, object value)
         {
             var text = Convert.ToString(value);
@@ -155,6 +192,9 @@ namespace DramaMurderGraduation.Web
                 : Server.HtmlEncode(prefix + text);
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         protected IHtmlString RenderAfterSaleTimeline(object dataItem)
         {
             var item = dataItem as AfterSaleRequestInfo;
@@ -172,6 +212,9 @@ namespace DramaMurderGraduation.Web
             return new HtmlString(html.ToString());
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         protected IHtmlString RenderAfterSaleEvidence(object evidenceUrl)
         {
             var url = Convert.ToString(evidenceUrl);
@@ -191,6 +234,24 @@ namespace DramaMurderGraduation.Web
             return new HtmlString("<p class=\"after-sale-status\">售后凭证：<a href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\">查看附件</a></p>");
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
+        private static bool CanLeaveReservation(string status)
+        {
+            switch (status)
+            {
+                case "待确认":
+                case "已确认":
+                case "玩家已确认":
+                case "申请改期":
+                case "已到店":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         private static string RenderTimelineStep(string title, string summary, bool active)
         {
             return "<span class=\"service-timeline-step" + (active ? " active" : string.Empty) + "\"><span class=\"service-timeline-dot\"></span><span class=\"service-timeline-copy\"><strong>"
@@ -200,12 +261,18 @@ namespace DramaMurderGraduation.Web
                 + "</small></span></span>";
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowNotFound()
         {
             pnlNotFound.Visible = true;
             pnlDetail.Visible = false;
         }
 
+        /// <summary>
+        /// 尝试解析或校验输入，并通过返回值表示是否成功。
+        /// </summary>
         private bool TryGetReservationId(out int reservationId)
         {
             return int.TryParse(Request.QueryString["reservationId"], out reservationId) && reservationId > 0;

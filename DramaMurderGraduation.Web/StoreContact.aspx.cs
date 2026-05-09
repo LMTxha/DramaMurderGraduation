@@ -1,14 +1,21 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Web.UI.WebControls;
 using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 门店联系与到店咨询页面。
+    /// 游客和登录用户都可以提交到店意向，后台角色可以在同页处理联系单。
+    /// </summary>
     public partial class StoreContactPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
 
+        /// <summary>
+        /// 首次加载时绑定门店信息、剧本下拉项、我的联系单和后台管理区。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (IsPostBack)
@@ -19,6 +26,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 提交到店咨询/探店预约。
+        /// </summary>
         protected void btnSubmit_Click(object sender, EventArgs e)
         {
             pnlMessage.Visible = true;
@@ -60,13 +70,22 @@ namespace DramaMurderGraduation.Web
 
             ShowMessage(message, success);
 
-            if (success)
+            if (!success)
             {
-                txtNote.Text = string.Empty;
-                BindRequests();
+                return;
+            }
+
+            txtNote.Text = string.Empty;
+            BindRequests();
+            if (pnlAdminStoreManager.Visible)
+            {
+                BindAdminStoreRequests();
             }
         }
 
+        /// <summary>
+        /// 玩家处理自己的到店联系单，例如确认安排或申请改期。
+        /// </summary>
         protected void rptRequests_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
             pnlMessage.Visible = true;
@@ -94,7 +113,7 @@ namespace DramaMurderGraduation.Web
             else if (string.Equals(e.CommandName, "RequestReschedule", StringComparison.OrdinalIgnoreCase))
             {
                 var remarkBox = e.Item.FindControl("txtRescheduleRemark") as TextBox;
-                success = _repository.RequestStoreVisitReschedule(requestId, currentUser.UserId, remarkBox?.Text.Trim(), out message);
+                success = _repository.RequestStoreVisitReschedule(requestId, currentUser.UserId, remarkBox == null ? string.Empty : remarkBox.Text.Trim(), out message);
             }
             else
             {
@@ -103,6 +122,10 @@ namespace DramaMurderGraduation.Web
 
             ShowMessage(message, success);
             BindRequests();
+            if (pnlAdminStoreManager.Visible)
+            {
+                BindAdminStoreRequests();
+            }
         }
 
         protected void btnFilterAdminStoreRequests_Click(object sender, EventArgs e)
@@ -121,8 +144,8 @@ namespace DramaMurderGraduation.Web
         {
             pnlMessage.Visible = true;
 
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.IsAdmin)
+            var currentUser = AuthManager.GetAdminUser();
+            if (currentUser == null)
             {
                 ShowMessage("只有系统管理员可以审核和回复玩家到店需求。", false);
                 return;
@@ -134,22 +157,24 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            var assignedRoomBox = e.Item.FindControl("txtAdminAssignedRoomName") as TextBox;
-            var remarkBox = e.Item.FindControl("txtAdminStoreRemark") as TextBox;
-            var replyBox = e.Item.FindControl("txtAdminStoreReply") as TextBox;
             var status = MapAdminStoreStatus(e.CommandName);
             if (string.IsNullOrWhiteSpace(status))
             {
                 return;
             }
 
-            var assignedRoomName = assignedRoomBox?.Text.Trim();
-            var adminReply = BuildAdminStoreReply(e.CommandName, assignedRoomName, replyBox?.Text.Trim());
+            var assignedRoomBox = e.Item.FindControl("txtAdminAssignedRoomName") as TextBox;
+            var remarkBox = e.Item.FindControl("txtAdminStoreRemark") as TextBox;
+            var replyBox = e.Item.FindControl("txtAdminStoreReply") as TextBox;
+            var assignedRoomName = assignedRoomBox == null ? string.Empty : assignedRoomBox.Text.Trim();
+            var adminRemark = remarkBox == null ? string.Empty : remarkBox.Text.Trim();
+            var adminReply = BuildAdminStoreReply(e.CommandName, assignedRoomName, replyBox == null ? string.Empty : replyBox.Text.Trim());
+
             var success = _repository.ReviewStoreVisitRequest(
                 requestId,
                 status,
                 assignedRoomName,
-                remarkBox?.Text.Trim(),
+                adminRemark,
                 adminReply,
                 currentUser.UserId,
                 out var message);
@@ -167,38 +192,35 @@ namespace DramaMurderGraduation.Web
             var currentUser = AuthManager.GetCurrentUser();
 
             litStoreName.Text = string.IsNullOrWhiteSpace(settings.SiteName) ? "线下门店" : settings.SiteName;
-            litStoreAddress.Text = settings.Address;
-            litBusinessHours.Text = settings.BusinessHours;
-            litPhone.Text = settings.ContactPhone;
-            litWeChat.Text = settings.ContactWeChat;
+            litStoreAddress.Text = string.IsNullOrWhiteSpace(settings.Address) ? "门店地址待补充" : settings.Address;
+            litBusinessHours.Text = string.IsNullOrWhiteSpace(settings.BusinessHours) ? "营业时间待补充" : settings.BusinessHours;
+            litPhone.Text = string.IsNullOrWhiteSpace(settings.ContactPhone) ? "门店电话待补充" : settings.ContactPhone;
+            litWeChat.Text = string.IsNullOrWhiteSpace(settings.ContactWeChat) ? "门店客服在线" : settings.ContactWeChat;
 
             ddlScripts.Items.Clear();
             ddlScripts.Items.Add(new ListItem("由门店推荐安排", string.Empty));
             foreach (var script in selectableScripts.OrderBy(item => item.Name))
             {
-                ddlScripts.Items.Add(new ListItem(script.Name + " · " + script.PlayerMin + "-" + script.PlayerMax + " 人", script.Id.ToString()));
+                ddlScripts.Items.Add(new ListItem(script.Name + " / " + script.PlayerMin + "-" + script.PlayerMax + " 人", script.Id.ToString()));
             }
 
-            var recommendedSession = sessions.FirstOrDefault(item => item.ScriptName == "潮声熄灯时")
+            var recommendedSession = sessions.FirstOrDefault(item => string.Equals(item.ScriptName, "潮声烛灯时", StringComparison.OrdinalIgnoreCase))
                 ?? sessions.FirstOrDefault();
             litRecommendedSession.Text = recommendedSession == null
                 ? "请联系门店确认最新排期"
                 : recommendedSession.ScriptName + " / " + recommendedSession.RoomName + " / " + recommendedSession.SessionDateTime.ToString("MM-dd HH:mm");
 
-            if (!IsPostBack)
-            {
-                txtPreferredTime.Text = DateTime.Now.AddDays(1).Date.AddHours(19).AddMinutes(30).ToString("yyyy-MM-dd HH:mm");
-                txtTeamSize.Text = "6";
-                txtNote.Text = "想在线上选好剧本并完成支付，到店后直接开本。";
+            txtPreferredTime.Text = DateTime.Now.AddDays(1).Date.AddHours(19).AddMinutes(30).ToString("yyyy-MM-dd HH:mm");
+            txtTeamSize.Text = "6";
+            txtNote.Text = "希望先在线上选好剧本并完成支付，到店后直接开本。";
 
-                if (int.TryParse(Request.QueryString["scriptId"], out var queryScriptId))
+            if (int.TryParse(Request.QueryString["scriptId"], out var queryScriptId))
+            {
+                var target = ddlScripts.Items.FindByValue(queryScriptId.ToString());
+                if (target != null)
                 {
-                    var target = ddlScripts.Items.FindByValue(queryScriptId.ToString());
-                    if (target != null)
-                    {
-                        ddlScripts.ClearSelection();
-                        target.Selected = true;
-                    }
+                    ddlScripts.ClearSelection();
+                    target.Selected = true;
                 }
             }
 
@@ -209,7 +231,7 @@ namespace DramaMurderGraduation.Web
             }
 
             BindAdminStoreStatusOptions();
-            pnlAdminStoreManager.Visible = currentUser != null && currentUser.IsAdmin;
+            pnlAdminStoreManager.Visible = AuthManager.HasAdminAccess(currentUser);
             if (pnlAdminStoreManager.Visible)
             {
                 BindAdminStoreRequests();
@@ -236,8 +258,8 @@ namespace DramaMurderGraduation.Web
 
         private void BindAdminStoreRequests()
         {
-            var currentUser = AuthManager.GetCurrentUser();
-            if (currentUser == null || !currentUser.IsAdmin)
+            var currentUser = AuthManager.GetAdminUser();
+            if (currentUser == null)
             {
                 return;
             }
@@ -299,9 +321,9 @@ namespace DramaMurderGraduation.Web
             switch (commandName)
             {
                 case "ApproveStore":
-                    return "你的到店需求已审核通过，门店已安排：" + roomName + "。请按预约时间到店，工作人员会协助开本。";
+                    return "你的到店需求已审核通过，门店已安排 " + roomName + "。请按预约时间到店，工作人员会协助开本。";
                 case "CompleteStore":
-                    return "本次到店已登记完成，感谢你选择本店。";
+                    return "本次到店已登记完成，感谢你的到店体验。";
                 case "RejectStore":
                     return "这张到店联系单暂时无法安排，已关闭。如需重新安排，请重新提交到店需求。";
                 default:

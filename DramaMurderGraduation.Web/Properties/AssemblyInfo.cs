@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 
+// 程序集元数据：用于描述 Web 项目的名称、版本和 COM 可见性。
+// 这些特性会被编译进程序集，供运行时、部署工具和 Visual Studio 项目属性读取。
 [assembly: AssemblyTitle("DramaMurderGraduation.Web")]
 [assembly: AssemblyDescription("ASP.NET Web Forms murder mystery venue management system.")]
 [assembly: AssemblyConfiguration("")]

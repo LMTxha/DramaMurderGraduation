@@ -4,8 +4,14 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// ScriptDetails.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class ScriptDetailsPage : System.Web.UI.Page
     {
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (IsPostBack)
@@ -69,6 +75,9 @@ namespace DramaMurderGraduation.Web
             rptReviews.DataBind();
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         public string TranslateAssetType(object assetType)
         {
             switch (Convert.ToString(assetType))
@@ -96,6 +105,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowNotFound()
         {
             pnlContent.Visible = false;

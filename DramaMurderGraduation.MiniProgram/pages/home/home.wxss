@@ -1,0 +1,79 @@
+.hero {
+  padding: 34rpx;
+  background: #211d1b;
+  color: #fffaf2;
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 800;
+}
+
+.hero-subtitle {
+  margin: 14rpx 0 26rpx;
+  color: rgba(255, 250, 242, 0.78);
+  font-size: 26rpx;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.stat {
+  padding: 18rpx;
+  text-align: center;
+  background: #fffaf2;
+  border-radius: 10rpx;
+}
+
+.stat text:first-child {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.stat text:last-child {
+  display: block;
+  margin-top: 6rpx;
+  color: #776f68;
+  font-size: 22rpx;
+}
+
+.script-row {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 18rpx;
+}
+
+.cover {
+  width: 150rpx;
+  height: 196rpx;
+  border-radius: 8rpx;
+  background: #ded4c8;
+}
+
+.script-body {
+  flex: 1;
+}
+
+.script-title {
+  margin-bottom: 10rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.session-side {
+  text-align: right;
+  color: #a83c32;
+  font-weight: 700;
+}

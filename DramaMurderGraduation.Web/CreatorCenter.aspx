@@ -1,14 +1,18 @@
 <%@ Page Title="剧本创作 | 剧本杀系统" Language="C#" MasterPageFile="~/Site.Master" AutoEventWireup="true" CodeBehind="CreatorCenter.aspx.cs" Inherits="DramaMurderGraduation.Web.CreatorCenterPage" %>
+<%-- 页面用途：CreatorCenter 页面负责承载对应功能的 Web Forms 标记、服务端控件和前端布局。 --%>
 <asp:Content ID="Content1" ContentPlaceHolderID="TitleContent" runat="server">
     剧本创作 | 剧本杀系统
 </asp:Content>
 <asp:Content ID="Content2" ContentPlaceHolderID="MainContent" runat="server">
+    <%-- 页面分区：把当前页面内容按业务模块拆分展示。 --%>
     <section class="inner-hero creator-hero">
         <div class="container creator-hero-grid">
+            <%-- 内容卡片：用于组织当前模块中的一组相关信息。 --%>
             <article class="hero-copy creator-hero-copy">
                 <p class="eyebrow">Creator Workspace</p>
                 <h1>剧本创作中心</h1>
                 <p>这里是创作者的专属工作台。你可以整理剧本基础信息、补充故事背景、提交审核，并在右侧随时查看投稿状态。</p>
+                <%-- 摘要标签区：展示当前页面最重要的数量或状态提示。 --%>
                 <div class="detail-tags creator-meta-row">
                     <span>在线投稿</span>
                     <span>审核入库</span>
@@ -41,46 +45,57 @@
         </div>
     </section>
 
+    <%-- 主要内容区：承载当前页面的核心业务列表、表单或详情内容。 --%>
     <section class="section-block">
         <div class="container creator-layout">
+            <%-- 表单面板：承载筛选条件或业务提交输入项。 --%>
             <article class="form-panel creator-form-panel" id="creator-form">
+                <%-- 模块标题区：说明当前业务模块的名称和处理说明。 --%>
                 <div class="section-heading left">
                     <h2>提交新剧本</h2>
                     <p>投稿数据会写入 <code>Scripts</code> 表，初始状态为待审核。建议先填写标题、卖点和人数配置，再补故事背景。</p>
                 </div>
 
+                <%-- 面板控件 pnlMessage：后台可通过 Visible/CssClass 控制整块内容是否显示以及提示样式。 --%>
                 <asp:Panel ID="pnlMessage" runat="server" Visible="false" CssClass="status-message">
                     <asp:Literal ID="litMessage" runat="server" />
                 </asp:Panel>
 
+                <%-- 表单网格：按响应式布局排列输入框、下拉框和筛选条件。 --%>
                 <div class="form-grid creator-form-grid">
                     <div class="field-group">
                         <label for="<%= ddlGenres.ClientID %>">题材分类</label>
+                        <%-- 下拉控件 ddlGenres：提供状态、分类或角色等固定选项。 --%>
                         <asp:DropDownList ID="ddlGenres" runat="server" CssClass="input-control" />
                     </div>
 
                     <div class="field-group">
                         <label for="<%= txtAuthorName.ClientID %>">署名作者</label>
+                        <%-- 输入控件 txtAuthorName：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtAuthorName" runat="server" CssClass="input-control" />
                     </div>
 
                     <div class="field-group full">
                         <label for="<%= txtScriptName.ClientID %>">剧本名称</label>
+                        <%-- 输入控件 txtScriptName：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtScriptName" runat="server" CssClass="input-control" />
                     </div>
 
                     <div class="field-group full">
                         <label for="<%= txtSlogan.ClientID %>">一句话卖点</label>
+                        <%-- 输入控件 txtSlogan：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtSlogan" runat="server" CssClass="input-control" />
                     </div>
 
                     <div class="field-group wide">
                         <label for="<%= txtCoverImage.ClientID %>">封面图片 URL</label>
+                        <%-- 输入控件 txtCoverImage：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtCoverImage" runat="server" CssClass="input-control" />
                     </div>
 
                     <div class="field-group">
                         <label for="<%= ddlDifficulty.ClientID %>">难度</label>
+                        <%-- 下拉控件 ddlDifficulty：提供状态、分类或角色等固定选项。 --%>
                         <asp:DropDownList ID="ddlDifficulty" runat="server" CssClass="input-control">
                             <asp:ListItem Text="入门" Value="入门" />
                             <asp:ListItem Text="进阶" Value="进阶" />
@@ -93,35 +108,43 @@
 
                     <div class="field-group">
                         <label for="<%= txtDuration.ClientID %>">时长（分钟）</label>
+                        <%-- 输入控件 txtDuration：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtDuration" runat="server" CssClass="input-control" Text="240" />
                     </div>
 
                     <div class="field-group">
                         <label for="<%= txtPrice.ClientID %>">建议价格</label>
+                        <%-- 输入控件 txtPrice：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtPrice" runat="server" CssClass="input-control" Text="198" />
                     </div>
 
                     <div class="field-group">
                         <label for="<%= txtPlayerMin.ClientID %>">最少人数</label>
+                        <%-- 输入控件 txtPlayerMin：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtPlayerMin" runat="server" CssClass="input-control" Text="6" />
                     </div>
 
                     <div class="field-group">
                         <label for="<%= txtPlayerMax.ClientID %>">最多人数</label>
+                        <%-- 输入控件 txtPlayerMax：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtPlayerMax" runat="server" CssClass="input-control" Text="7" />
                     </div>
 
                     <div class="field-group full">
                         <label for="<%= txtStoryBackground.ClientID %>">故事背景</label>
+                        <%-- 输入控件 txtStoryBackground：接收用户输入或展示后台已有备注。 --%>
                         <asp:TextBox ID="txtStoryBackground" runat="server" CssClass="input-control textarea creator-story-input" TextMode="MultiLine" Rows="10" />
                     </div>
                 </div>
 
+                <%-- 操作按钮 btnSubmitScript：点击后触发后台事件处理当前业务动作。 --%>
                 <asp:Button ID="btnSubmitScript" runat="server" Text="提交剧本审核" CssClass="btn-primary wide-button" OnClick="btnSubmitScript_Click" />
             </article>
 
             <aside class="creator-sidebar">
+                <%-- 信息面板：承载一个独立的业务说明、列表或表单模块。 --%>
                 <article class="about-panel creator-note-panel">
+                    <%-- 模块标题区：说明当前业务模块的名称和处理说明。 --%>
                     <div class="section-heading left">
                         <h2>投稿提示</h2>
                         <p>把创作规范放在右侧，页面会更像真实后台工作台，而不是只有一个表单。</p>
@@ -142,15 +165,20 @@
                     </div>
                 </article>
 
+                <%-- 信息面板：承载一个独立的业务说明、列表或表单模块。 --%>
                 <article class="about-panel creator-submissions-panel" id="creator-submissions">
+                    <%-- 模块标题区：说明当前业务模块的名称和处理说明。 --%>
                     <div class="section-heading left">
                         <h2>我的投稿</h2>
                         <p>可以查看自己的投稿审核状态与管理员意见。</p>
                     </div>
 
                     <div class="creator-list creator-submission-list">
+                        <%-- 数据列表控件 rptMyScripts：后台绑定集合数据后，按 ItemTemplate 循环渲染每条记录。 --%>
                         <asp:Repeater ID="rptMyScripts" runat="server">
+                            <%-- 列表项模板：定义 Repeater 中每一条业务记录的 HTML 结构和绑定字段。 --%>
                             <ItemTemplate>
+                                <%-- 业务卡片：展示一条预约、审核、消息或统计记录。 --%>
                                 <article class="reservation-card creator-submission-card">
                                     <div class="creator-submission-head">
                                         <h3><%# Eval("Name") %></h3>

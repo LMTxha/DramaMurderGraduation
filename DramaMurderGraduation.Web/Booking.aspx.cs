@@ -9,6 +9,10 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 在线预约页面。
+    /// 负责展示可预约场次、提交预约订单、显示我的预约/候补/售后，并根据剧本筛选场次。
+    /// </summary>
     public partial class BookingPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
@@ -16,6 +20,10 @@ namespace DramaMurderGraduation.Web
         private int? _scriptIdFilter;
         private IList<SessionInfo> _sessionOptions;
 
+        /// <summary>
+        /// 页面首次加载时绑定筛选项、场次、用户信息和历史订单。
+        /// 所有预约操作都要求账号已审核通过。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -36,14 +44,12 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 提交预约表单。
+        /// 前端控件值会再次在服务端校验，避免人数、场次容量或优惠券状态被绕过。
+        /// </summary>
         protected void btnSubmit_Click(object sender, EventArgs e)
         {
-            if (!int.TryParse(ddlSessions.SelectedValue, out var sessionId))
-            {
-                ShowMessage("请选择有效场次。", false);
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(txtContactName.Text) || string.IsNullOrWhiteSpace(txtPhone.Text))
             {
                 ShowMessage("联系人和联系电话不能为空。", false);
@@ -54,6 +60,24 @@ namespace DramaMurderGraduation.Web
             {
                 ShowMessage("预约人数请输入 1 到 8 之间的整数。", false);
                 return;
+            }
+
+            if (!int.TryParse(ddlSessions.SelectedValue, out var sessionId))
+            {
+                if (!_scriptIdFilter.HasValue)
+                {
+                    ShowMessage("请选择有效场次。", false);
+                    return;
+                }
+
+                var prepared = _repository.EnsureDirectBookingSession(_scriptIdFilter.Value, playerCount, out sessionId, out var prepareMessage);
+                if (!prepared)
+                {
+                    BindSessions();
+                    UpdateBookingSummary();
+                    ShowMessage(prepareMessage, false);
+                    return;
+                }
             }
 
             var session = _repository.GetSessionById(sessionId);
@@ -96,9 +120,30 @@ namespace DramaMurderGraduation.Web
             UpdateBookingSummary();
         }
 
+        /// <summary>
+        /// 我的预约列表中的售后申请命令。
+        /// </summary>
         protected void rptMyReservations_ItemCommand(object source, RepeaterCommandEventArgs e)
         {
-            if (e.CommandName != "CreateAfterSale" || !int.TryParse(Convert.ToString(e.CommandArgument), out var reservationId))
+            if (!int.TryParse(Convert.ToString(e.CommandArgument), out var reservationId))
+            {
+                return;
+            }
+
+            if (string.Equals(e.CommandName, "LeaveReservation", StringComparison.OrdinalIgnoreCase))
+            {
+                var leaveUser = AuthManager.GetCurrentUser();
+                var leaveSuccess = _repository.LeaveReservationByPlayer(reservationId, leaveUser.UserId, out var leaveMessage);
+                ShowMessage(leaveMessage, leaveSuccess);
+                BindSessions();
+                BindWaitlistSessions();
+                BindMyReservations();
+                BindRecentReservations();
+                UpdateBookingSummary();
+                return;
+            }
+
+            if (e.CommandName != "CreateAfterSale")
             {
                 return;
             }
@@ -199,25 +244,34 @@ namespace DramaMurderGraduation.Web
 
         private void BindSessions()
         {
-            _sessionOptions = _repository.GetUpcomingSessions(50, _scriptIdFilter)
+            var upcomingSessions = _repository.GetUpcomingSessions(50, _scriptIdFilter);
+            _sessionOptions = upcomingSessions
                 .Where(session => session.RemainingSeats > 0)
                 .ToList();
 
             ddlSessions.Items.Clear();
             foreach (var session in _sessionOptions)
             {
-                var text = $"{session.SessionDateTime:MM-dd HH:mm} | {session.ScriptName} | {session.RoomName} | ￥{session.BasePrice:F0}/人 | 剩余 {session.RemainingSeats} 位";
+                var text = $"{session.SessionDateTime:MM-dd HH:mm} | ROOM-{session.Id:D4} | {session.RoomName} | {session.ScriptName} | ￥{session.BasePrice:F0}/人 | 剩余 {session.RemainingSeats} 位";
                 ddlSessions.Items.Add(new ListItem(text, session.Id.ToString()));
             }
 
             if (ddlSessions.Items.Count == 0)
             {
-                ddlSessions.Items.Add(new ListItem("暂无可预约场次，请稍后再试", string.Empty));
-                ddlSessions.Enabled = false;
-                btnSubmit.Enabled = false;
-                btnSubmit.Text = "暂无可预约场次";
-                btnSubmit.CssClass = "btn-primary wide-button booking-submit-button booking-submit-disabled";
-                ShowMessage("当前剧本的开放场次已经满员，暂时不能继续预约。请等待管理员新增排期，或选择其他剧本/场次。", false);
+                var canDirectBookScript = _scriptIdFilter.HasValue && upcomingSessions.Count == 0;
+                ddlSessions.Items.Add(new ListItem(canDirectBookScript ? "直接预约该剧本，系统自动安排房间" : "暂无可预约场次，请稍后再试", string.Empty));
+                ddlSessions.Enabled = canDirectBookScript;
+                btnSubmit.Enabled = canDirectBookScript;
+                btnSubmit.Text = canDirectBookScript ? "直接预约该剧本" : "暂无可预约场次";
+                btnSubmit.CssClass = canDirectBookScript
+                    ? "btn-primary wide-button booking-submit-button"
+                    : "btn-primary wide-button booking-submit-button booking-submit-disabled";
+                var message = canDirectBookScript
+                    ? "当前剧本没有未来排期，你可以直接提交预约；系统会自动安排一个空闲房间并生成本次场次。"
+                    : upcomingSessions.Count == 0
+                        ? "当前暂无未来开放排期，暂时不能继续预约。请从剧本详情进入预约，或选择其他剧本/场次。"
+                        : "当前剧本的未来开放场次已经满员，暂时不能继续预约。请等待释放名额，或选择其他剧本/场次。";
+                ShowMessage(message, canDirectBookScript);
                 return;
             }
 
@@ -361,6 +415,30 @@ namespace DramaMurderGraduation.Web
         {
             if (!int.TryParse(ddlSessions.SelectedValue, out var sessionId))
             {
+                if (_scriptIdFilter.HasValue)
+                {
+                    var script = _repository.GetScriptDetail(_scriptIdFilter.Value);
+                    if (script != null)
+                    {
+                        var directPlayerCount = 1;
+                        if (!int.TryParse(txtPlayerCount.Text, out directPlayerCount) || directPlayerCount <= 0)
+                        {
+                            directPlayerCount = 1;
+                        }
+
+                        litSelectedSession.Text = script.Name + " / 直接预约";
+                        litRemainingSeats.Text = script.PlayerMax.ToString();
+                        litUnitPrice.Text = script.Price.ToString("F2");
+                        var directAmount = script.Price * directPlayerCount;
+                        var directCoupons = BindCoupons(directAmount);
+                        var directCoupon = directCoupons.FirstOrDefault(item => item.Id.ToString() == ddlCoupons.SelectedValue);
+                        var directDiscount = directCoupon == null ? 0M : Math.Min(directCoupon.DiscountAmount, directAmount);
+                        litCouponDiscount.Text = directDiscount.ToString("F2");
+                        litEstimatedAmount.Text = Math.Max(0M, directAmount - directDiscount).ToString("F2");
+                        return;
+                    }
+                }
+
                 litSelectedSession.Text = "暂无可预约场次";
                 litRemainingSeats.Text = "0";
                 litUnitPrice.Text = "0.00";
@@ -388,7 +466,7 @@ namespace DramaMurderGraduation.Web
                 playerCount = 1;
             }
 
-            litSelectedSession.Text = session.ScriptName + " / " + session.RoomName;
+            litSelectedSession.Text = session.ScriptName + " / " + session.RoomName + " / ROOM-" + session.Id.ToString("D4");
             litRemainingSeats.Text = session.RemainingSeats.ToString();
             litUnitPrice.Text = session.BasePrice.ToString("F2");
             var originalAmount = session.BasePrice * playerCount;
@@ -442,12 +520,12 @@ namespace DramaMurderGraduation.Web
 
             var preferredSession = _sessionOptions
                 .Where(session => session.RemainingSeats >= desiredPlayerCount)
-                .OrderByDescending(session => session.RemainingSeats)
-                .ThenBy(session => session.SessionDateTime)
+                .OrderBy(session => session.SessionDateTime)
+                .ThenBy(session => session.Id)
                 .FirstOrDefault()
                 ?? _sessionOptions
-                    .OrderByDescending(session => session.RemainingSeats)
-                    .ThenBy(session => session.SessionDateTime)
+                    .OrderBy(session => session.SessionDateTime)
+                    .ThenBy(session => session.Id)
                     .FirstOrDefault();
 
             if (preferredSession == null)
@@ -542,6 +620,27 @@ namespace DramaMurderGraduation.Web
             html.Append(RenderTimelineStep("已申诉", item.AppealedAt.HasValue ? item.AppealedAt.Value.ToString("MM-dd HH:mm") : "未发起", item.AppealedAt.HasValue));
             html.Append(RenderTimelineStep("已完成", item.ProcessedAt.HasValue ? item.ProcessedAt.Value.ToString("MM-dd HH:mm") : "处理中", item.ProcessedAt.HasValue));
             return new HtmlString(html.ToString());
+        }
+
+        public bool CanLeaveReservation(object dataItem)
+        {
+            var reservation = dataItem as ReservationInfo;
+            if (reservation == null)
+            {
+                return false;
+            }
+
+            switch (reservation.Status)
+            {
+                case "待确认":
+                case "已确认":
+                case "玩家已确认":
+                case "申请改期":
+                case "已到店":
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         public IHtmlString RenderAfterSaleEvidence(object evidenceUrl)

@@ -3,12 +3,20 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 全站母版页代码。
+    /// 负责渲染站点基础信息、顶部统计、登录区、角色导航、未读角标和页脚联系信息。
+    /// </summary>
     public partial class SiteMaster : System.Web.UI.MasterPage
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
         private readonly ContentRepository _contentRepository = new ContentRepository();
         protected string TakeawayUrl => "https://pro.m.jd.com/mall/active/4CJH74pqm4snemxqc2TBUJpZe9JQ/index.html?cu=true&addressID=0&provinceCode=10&province=%E9%BB%91%E9%BE%99%E6%B1%9F&cityCode=731&city=%E5%8F%8C%E9%B8%AD%E5%B1%B1%E5%B8%82&districtCode=3340&district=%E5%B0%96%E5%B1%B1%E5%8C%BA&townCode=58167&town=%E9%93%81%E8%A5%BF%E8%A1%97%E9%81%93&fullAddress=%E9%BB%91%E9%BE%99%E6%B1%9F%E5%8F%8C%E9%B8%AD%E5%B1%B1%E5%B8%82%E5%B0%96%E5%B1%B1%E5%8C%BA%E9%93%81%E8%A5%BF%E8%A1%97%E9%81%93%E6%96%B0%E5%85%B4%E5%A4%A7%E8%A1%97191%E5%8F%B7&detailAddress=%E6%96%B0%E5%85%B4%E5%A4%A7%E8%A1%97191%E5%8F%B7&lng=131.15841&lat=46.64635&lbsData=vTsHJXSLSeyJhZGRyZXNzSUQiOjAsInByb3ZpbmNlQ29kZSI6MTAsInByb3ZpbmNlIjoi6buR6b6Z5rGfIiwiY2l0eUNvZGUiOjczMSwiY2l0eSI6IuWPjOm4reWxseW4giIsImRpc3RyaWN0Q29kZSI6MzM0MCwiZGlzdHJpY3QiOiLlsJblsbHljLoiLCJ0b3duQ29kZSI6NTgxNjcsInRvd24iOiLpk4Hopb%2FooZfpgZMiLCJmdWxsQWRkcmVzcyI6Ium7kem%2Bmeaxn%2BWPjOm4reWxseW4guWwluWxseWMuumTgeilv%2Bihl%2BmBk%2BaWsOWFtOWkp%2BihlzE5MeWPtyIsImRldGFpbEFkZHJlc3MiOiLmlrDlhbTlpKfooZcxOTHlj7ciLCJsbmciOjEzMS4xNTg0MSwibGF0Ijo0Ni42NDYzNX0%3D&hasChanged=1";
 
+        /// <summary>
+        /// 每次请求都刷新站点信息和当前登录用户状态。
+        /// 这里会重新读取用户审核状态，防止用户审核状态变化后旧 Session 继续保留权限。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             var settings = _contentRepository.GetSiteSettings();
@@ -46,6 +54,7 @@ namespace DramaMurderGraduation.Web
             phMemberMenu.Visible = isLoggedIn;
             phLoggedIn.Visible = isLoggedIn;
             phSocialNav.Visible = isLoggedIn;
+            phMyRoomsNav.Visible = isLoggedIn;
             phAdmin.Visible = isLoggedIn && currentUser.CanAccessAdminConsole;
             phDm.Visible = isLoggedIn && currentUser.CanManageGameRoom;
 
@@ -57,22 +66,52 @@ namespace DramaMurderGraduation.Web
                 var userSettings = _accountRepository.GetUserSettings(currentUser.UserId);
                 imgCurrentAvatar.ImageUrl = ResolveAvatarUrl(userSettings?.AvatarUrl);
                 imgCurrentAvatar.AlternateText = currentUser.DisplayName + "头像";
-                var unreadFriendMessages = _accountRepository.GetUnreadFriendMessageCount(currentUser.UserId);
-                var unreadNotifications = _contentRepository.GetUnreadNotificationCount(currentUser.UserId);
-                litSocialNavLabel.Text = unreadFriendMessages > 0
-                    ? "好友互动 <span class=\"nav-badge\">" + unreadFriendMessages + "</span>"
-                    : "好友互动";
-                litNotificationLabel.Text = unreadNotifications > 0
-                    ? "通知中心 <span class=\"nav-badge\">" + unreadNotifications + "</span>"
-                    : "通知中心";
-                litNotificationNavLabel.Text = unreadNotifications > 0
-                    ? "通知中心 <span class=\"nav-badge\">" + unreadNotifications + "</span>"
-                    : "通知中心";
+                RefreshUnreadNavigationBadges();
                 lnkAdminReviewNav.Visible = currentUser.CanAccessAdminConsole;
                 lnkAnalyticsNav.Visible = currentUser.CanViewAnalytics;
+                lnkAdminScriptOccupancyNav.Visible = currentUser.CanManageOperations;
             }
         }
 
+        /// <summary>
+        /// 在页面事件处理后再次刷新未读角标，避免标记已读后导航仍显示旧数量。
+        /// </summary>
+        protected void Page_PreRender(object sender, EventArgs e)
+        {
+            RefreshUnreadNavigationBadges();
+        }
+
+        /// <summary>
+        /// 重新读取互动消息和通知未读数，并更新顶部导航文案。
+        /// </summary>
+        public void RefreshUnreadNavigationBadges()
+        {
+            var currentUser = AuthManager.GetCurrentUser();
+            if (currentUser == null)
+            {
+                litSocialNavLabel.Text = "好友互动";
+                litNotificationLabel.Text = "通知中心";
+                litNotificationNavLabel.Text = "通知中心";
+                return;
+            }
+
+            var unreadFriendMessages = _accountRepository.GetUnreadFriendMessageCount(currentUser.UserId);
+            var unreadNotifications = _contentRepository.GetUnreadNotificationCount(currentUser.UserId);
+            litSocialNavLabel.Text = unreadFriendMessages > 0
+                ? "好友互动 <span class=\"nav-badge\">" + unreadFriendMessages + "</span>"
+                : "好友互动";
+            litNotificationLabel.Text = unreadNotifications > 0
+                ? "通知中心 <span class=\"nav-badge\">" + unreadNotifications + "</span>"
+                : "通知中心";
+            litNotificationNavLabel.Text = unreadNotifications > 0
+                ? "通知中心 <span class=\"nav-badge\">" + unreadNotifications + "</span>"
+                : "通知中心";
+        }
+
+        /// <summary>
+        /// 将用户头像地址规范成浏览器可访问的 URL。
+        /// 支持站点相对路径、根路径和完整外链，空值使用默认头像。
+        /// </summary>
         private string ResolveAvatarUrl(string avatarUrl)
         {
             var value = (avatarUrl ?? string.Empty).Trim();

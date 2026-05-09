@@ -1,0 +1,25 @@
+.empty {
+  text-align: center;
+}
+
+.order {
+  margin-bottom: 18rpx;
+}
+
+.order-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.script-title {
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.amount {
+  margin: 16rpx 0;
+  color: #a83c32;
+  font-size: 32rpx;
+  font-weight: 800;
+}

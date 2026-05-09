@@ -7,7 +7,12 @@
 /DramaMurderGraduationDb*.mdf
 /DramaMurderGraduationDb*.ldf
 **/iisexpress-*.log
+tmp-iisexpress-logs/
+precompiled_scan/
+docx_build_er/
+roomchat_error.html
 **/ImportedScripts/
 **/Uploads/
+DramaMurderGraduation.Web/Web.local.config
 *.user
 *.suo

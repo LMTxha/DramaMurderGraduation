@@ -1,3 +1,6 @@
+# 生成数据库部署脚本的辅助工具。
+# 用于把项目数据库结构和初始化数据整理成可复用的发布 SQL。
+
 param(
     [string]$ConnectionString = 'Data Source=(LocalDB)\MSSQLLocalDB;Initial Catalog=DramaMurderGraduationDb;Integrated Security=True;Connect Timeout=30;MultipleActiveResultSets=True',
     [string]$DatabaseName = 'DramaMurderGraduationDb',

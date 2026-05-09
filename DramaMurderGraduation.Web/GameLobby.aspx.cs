@@ -1,12 +1,18 @@
-﻿using System;
+using System;
 using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// GameLobby.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class GameLobbyPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -17,6 +23,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnConfirmReservationReceived_Click(object sender, EventArgs e)
         {
             pnlLobbyMessage.Visible = true;
@@ -33,6 +42,9 @@ namespace DramaMurderGraduation.Web
             BindLobby();
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnRequestReservationReschedule_Click(object sender, EventArgs e)
         {
             pnlLobbyMessage.Visible = true;
@@ -54,6 +66,31 @@ namespace DramaMurderGraduation.Web
             BindLobby();
         }
 
+        protected void btnLeaveReservation_Click(object sender, EventArgs e)
+        {
+            pnlLobbyMessage.Visible = true;
+            var currentUser = AuthManager.GetCurrentUser();
+            int reservationId;
+            if (!TryGetReservationId(out reservationId) || currentUser == null || currentUser.CanManageGameRoom)
+            {
+                ShowLobbyMessage("未找到可退出的游戏预约。", false);
+                return;
+            }
+
+            var success = _repository.LeaveReservationByPlayer(reservationId, currentUser.UserId, out var message);
+            if (success)
+            {
+                Response.Redirect("~/PlayerHub.aspx?tab=orders", true);
+                return;
+            }
+
+            ShowLobbyMessage(message, false);
+            BindLobby();
+        }
+
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindLobby()
         {
             var currentUser = AuthManager.GetCurrentUser();
@@ -82,7 +119,7 @@ namespace DramaMurderGraduation.Web
 
             litReservationId.Text = reservation.Id.ToString();
             litScriptName.Text = reservation.ScriptName;
-            litRoomName.Text = reservation.RoomName;
+            litRoomName.Text = RoomNavigationHelper.RenderRoomSelectLink(reservation);
             litHostName.Text = reservation.HostName;
             litTotalAmount.Text = reservation.TotalAmount.ToString("F2");
             litPlayerCount.Text = reservation.PlayerCount.ToString();
@@ -99,19 +136,46 @@ namespace DramaMurderGraduation.Web
             litSessionTimePreview.Text = sessionText;
             litHostNamePreview.Text = reservation.HostName;
             litScriptNamePreview.Text = reservation.ScriptName;
+            btnLeaveReservation.Visible = currentUser != null
+                && !currentUser.CanManageGameRoom
+                && CanLeaveReservation(reservation.Status);
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowNotFound()
         {
             pnlLobby.Visible = false;
             pnlNotFound.Visible = true;
         }
 
+        /// <summary>
+        /// 尝试解析或校验输入，并通过返回值表示是否成功。
+        /// </summary>
         private bool TryGetReservationId(out int reservationId)
         {
             return int.TryParse(Request.QueryString["reservationId"], out reservationId) && reservationId > 0;
         }
 
+        private static bool CanLeaveReservation(string status)
+        {
+            switch (status)
+            {
+                case "待确认":
+                case "已确认":
+                case "玩家已确认":
+                case "申请改期":
+                case "已到店":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowLobbyMessage(string message, bool success)
         {
             pnlLobbyMessage.CssClass = success ? "status-message success" : "status-message error";

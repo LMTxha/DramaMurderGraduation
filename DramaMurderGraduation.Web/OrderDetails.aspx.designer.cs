@@ -9,7 +9,10 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litOrderStatus;
         protected global::System.Web.UI.WebControls.Literal litSessionTime;
         protected global::System.Web.UI.WebControls.Literal litRoomName;
+        protected global::System.Web.UI.WebControls.Literal litRoomCode;
         protected global::System.Web.UI.WebControls.Literal litHostName;
+        protected global::System.Web.UI.WebControls.HyperLink lnkGameRoom;
+        protected global::System.Web.UI.WebControls.LinkButton btnLeaveReservation;
         protected global::System.Web.UI.WebControls.HyperLink lnkLobby;
         protected global::System.Web.UI.WebControls.HyperLink lnkConversation;
         protected global::System.Web.UI.WebControls.HyperLink lnkCheckInPass;

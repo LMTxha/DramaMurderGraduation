@@ -4,10 +4,18 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 钱包页面。
+    /// 负责现金充值申请、充值记录、钱包流水、礼物币兑换和礼物币流水展示。
+    /// </summary>
     public partial class WalletPage : System.Web.UI.Page
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
 
+        /// <summary>
+        /// 校验登录并绑定钱包数据。
+        /// 每次加载都先同步支付方式面板，避免回发后显示状态不一致。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -45,6 +53,10 @@ namespace DramaMurderGraduation.Web
             UpdatePaymentPanels();
         }
 
+        /// <summary>
+        /// 提交现金充值申请。
+        /// 充值不会直接到账，需要后台财务审核通过。
+        /// </summary>
         protected void btnRecharge_Click(object sender, EventArgs e)
         {
             pnlMessage.Visible = true;
@@ -82,6 +94,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 使用现金余额兑换礼物币。
+        /// </summary>
         protected void btnGiftRecharge_Click(object sender, EventArgs e)
         {
             pnlGiftMessage.Visible = true;

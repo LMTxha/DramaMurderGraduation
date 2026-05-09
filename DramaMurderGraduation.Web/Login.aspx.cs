@@ -1,13 +1,19 @@
-﻿using System;
+using System;
 using DramaMurderGraduation.Web.Data;
 using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// Login.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class LoginPage : System.Web.UI.Page
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (AuthManager.IsLoggedIn())
@@ -28,6 +34,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnLogin_Click(object sender, EventArgs e)
         {
             pnlMessage.Visible = true;
@@ -62,6 +71,9 @@ namespace DramaMurderGraduation.Web
             Response.Redirect(AuthManager.GetDefaultLandingUrl(AuthManager.CreateCurrentUser(user)));
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowMessage(string message, bool success)
         {
             pnlMessage.CssClass = success ? "status-message success" : "status-message error";

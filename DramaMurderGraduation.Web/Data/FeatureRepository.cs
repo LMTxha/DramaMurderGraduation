@@ -5,8 +5,15 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web.Data
 {
+    /// <summary>
+    /// 扩展功能页的数据仓储。
+    /// 主要服务今日推荐、挑战、直播、会员、玩家档案、分析看板和观战相关页面。
+    /// </summary>
     public class FeatureRepository
     {
+        /// <summary>
+        /// 获取“今日推荐”卡片数据。
+        /// </summary>
         public IList<RecommendationInfo> GetTodayRecommendations(int top)
         {
             const string sql = @"
@@ -37,6 +44,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取限时挑战列表。
+        /// </summary>
         public IList<ChallengeInfo> GetChallenges(int top)
         {
             const string sql = @"
@@ -65,6 +75,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取正在直播或高热度的游戏场次。
+        /// </summary>
         public IList<LiveSessionInfo> GetLiveSessions(int top)
         {
             const string sql = @"
@@ -95,6 +108,9 @@ ORDER BY HeatScore DESC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取会员订阅方案。
+        /// </summary>
         public IList<MembershipPlanInfo> GetMembershipPlans()
         {
             const string sql = @"
@@ -121,6 +137,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取玩家身份选择项。
+        /// </summary>
         public IList<IdentityOptionInfo> GetIdentityOptions()
         {
             const string sql = @"
@@ -143,6 +162,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取玩家档案。
+        /// </summary>
         public PlayerProfileInfo GetPlayerProfile(int userId)
         {
             const string sql = @"
@@ -177,6 +199,9 @@ WHERE UserId = @UserId;";
             return list.Count > 0 ? list[0] : null;
         }
 
+        /// <summary>
+        /// 新增或更新玩家档案。
+        /// </summary>
         public bool UpsertPlayerProfile(PlayerProfileInfo profile, out string message)
         {
             const string sql = @"
@@ -242,6 +267,9 @@ WHERE Id = @UserId;";
             return true;
         }
 
+        /// <summary>
+        /// 获取玩家能力值。
+        /// </summary>
         public PlayerAbilityInfo GetPlayerAbilities(int userId)
         {
             const string sql = @"
@@ -268,6 +296,9 @@ WHERE UserId = @UserId;";
             return list.Count > 0 ? list[0] : null;
         }
 
+        /// <summary>
+        /// 获取玩家成就墙数据。
+        /// </summary>
         public IList<AchievementInfo> GetAchievements(int userId)
         {
             const string sql = @"
@@ -295,6 +326,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取玩家最近战绩。
+        /// </summary>
         public IList<PlayerBattleRecordInfo> GetPlayerBattleRecords(int userId, int top)
         {
             const string sql = @"
@@ -334,6 +368,9 @@ ORDER BY CompletedAt DESC, Id DESC;";
             });
         }
 
+        /// <summary>
+        /// 获取演示分析指标。
+        /// </summary>
         public AnalyticsMetricInfo GetAnalyticsMetric()
         {
             const string sql = @"
@@ -360,6 +397,9 @@ ORDER BY SnapshotDate DESC, Id DESC;";
             return list.Count > 0 ? list[0] : null;
         }
 
+        /// <summary>
+        /// 按时间范围统计真实运营分析指标。
+        /// </summary>
         public AnalyticsMetricInfo GetOperationalAnalyticsMetric(DateTime startDate, DateTime endDate)
         {
             const string sql = @"
@@ -492,6 +532,9 @@ CROSS JOIN
             return list.Count > 0 ? list[0] : null;
         }
 
+        /// <summary>
+        /// 获取玩家行为热力图区域数据。
+        /// </summary>
         public IList<HeatmapZoneInfo> GetHeatmapZones()
         {
             const string sql = @"
@@ -514,6 +557,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取剧本完成率洞察。
+        /// </summary>
         public IList<CompletionInsightInfo> GetCompletionInsights()
         {
             const string sql = @"
@@ -536,6 +582,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取虚拟经济洞察。
+        /// </summary>
         public IList<EconomyInsightInfo> GetEconomyInsights()
         {
             const string sql = @"
@@ -558,6 +607,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取观战模式选项。
+        /// </summary>
         public IList<SpectatorModeInfo> GetSpectatorModes()
         {
             const string sql = @"
@@ -578,6 +630,9 @@ ORDER BY SortOrder ASC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取可观战房间列表。
+        /// </summary>
         public IList<SpectatorRoomInfo> GetSpectatorRooms()
         {
             const string sql = @"
@@ -608,6 +663,9 @@ ORDER BY HeatScore DESC, Id ASC;";
             });
         }
 
+        /// <summary>
+        /// 获取观战聊天室消息。
+        /// </summary>
         public IList<SpectatorMessageInfo> GetSpectatorMessages(int spectatorRoomId, int top)
         {
             const string sql = @"
@@ -641,6 +699,10 @@ ORDER BY Id DESC;";
             return ordered;
         }
 
+        /// <summary>
+        /// 为演示页面解析用户 Id。
+        /// 如果调用方没有指定用户，则返回一个可用的示例用户。
+        /// </summary>
         public int ResolveDemoUserId(int? preferredUserId)
         {
             if (preferredUserId.HasValue)
@@ -663,6 +725,9 @@ ORDER BY CASE WHEN Username = N'admin' THEN 0 ELSE 1 END, Id ASC;";
             }
         }
 
+        /// <summary>
+        /// 通用列表查询模板。
+        /// </summary>
         private IList<T> ExecuteList<T>(string sql, Action<SqlCommand> parameterize, Func<SqlDataReader, T> map)
         {
             var results = new List<T>();
@@ -685,31 +750,37 @@ ORDER BY CASE WHEN Username = N'admin' THEN 0 ELSE 1 END, Id ASC;";
             return results;
         }
 
+        /// <summary>读取字符串字段，NULL 转空字符串。</summary>
         private static string GetString(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? string.Empty : Convert.ToString(reader[columnName]);
         }
 
+        /// <summary>读取整数字段。</summary>
         private static int GetInt32(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? 0 : Convert.ToInt32(reader[columnName]);
         }
 
+        /// <summary>读取金额或评分字段。</summary>
         private static decimal GetDecimal(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? 0M : Convert.ToDecimal(reader[columnName]);
         }
 
+        /// <summary>读取必填时间字段。</summary>
         private static DateTime GetDateTime(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(reader[columnName]);
         }
 
+        /// <summary>读取可空时间字段。</summary>
         private static DateTime? GetNullableDateTime(SqlDataReader reader, string columnName)
         {
             return reader[columnName] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader[columnName]);
         }
 
+        /// <summary>读取布尔字段。</summary>
         private static bool GetBoolean(SqlDataReader reader, string columnName)
         {
             return reader[columnName] != DBNull.Value && Convert.ToBoolean(reader[columnName]);

@@ -3,8 +3,16 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 站点首页。
+    /// 从 ContentRepository 聚合站点配置、运营指标、公告、剧本、场次和最新评价。
+    /// </summary>
     public partial class DefaultPage : System.Web.UI.Page
     {
+        /// <summary>
+        /// 首次加载首页数据。
+        /// 回发时不重复绑定，避免覆盖控件状态。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (IsPostBack)
@@ -41,6 +49,9 @@ namespace DramaMurderGraduation.Web
             rptLatestReviews.DataBind();
         }
 
+        /// <summary>
+        /// 清理数据库种子文案中的技术/毕业设计描述，让首页展示更像真实门店文案。
+        /// </summary>
         private static string CleanCopy(string value, string fallback)
         {
             if (string.IsNullOrWhiteSpace(value))

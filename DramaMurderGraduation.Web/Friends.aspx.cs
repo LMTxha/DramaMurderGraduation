@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Web;
@@ -9,6 +10,10 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 好友工作区页面。
+    /// 集成好友搜索、好友申请、私聊、群聊、动态、转账、礼物、个人资料和桌面设置等社交能力。
+    /// </summary>
     public partial class FriendsPage : System.Web.UI.Page
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
@@ -58,14 +63,21 @@ namespace DramaMurderGraduation.Web
             set => ViewState[ReplyCommentViewStateKey] = value;
         }
 
+        /// <summary>
+        /// 页面加载时设置上传表单、校验登录，并恢复当前选中的会话/回复状态。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (Page.Form != null)
             {
                 Page.Form.Enctype = "multipart/form-data";
             }
+            if (fuChatAttachment != null)
+            {
+                fuChatAttachment.Attributes["accept"] = "image/*,audio/*,.mp4,.webm,.pdf,.doc,.docx,.txt";
+            }
 
-            AuthManager.RequireLogin();
+            AuthManager.RequireApprovedUser();
 
             LoadSelectionState();
 
@@ -75,6 +87,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 按关键字搜索好友候选人。
+        /// </summary>
         protected void btnSearchFriends_Click(object sender, EventArgs e)
         {
             FriendSearchKeyword = txtFriendSearch.Text.Trim();
@@ -88,6 +103,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 搜索当前会话列表。
+        /// </summary>
         protected void btnSearchConversation_Click(object sender, EventArgs e)
         {
             ConversationSearchKeyword = txtConversationSearch.Text.Trim();
@@ -109,6 +127,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 发送好友申请。
+        /// </summary>
         protected void btnSendFriendRequest_Click(object sender, EventArgs e)
         {
             pnlFriendMessage.Visible = true;
@@ -254,7 +275,16 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
-            var attachmentUrl = string.IsNullOrWhiteSpace(uploadedUrl) ? txtChatAttachmentUrl.Text.Trim() : uploadedUrl;
+            var inlineAttachmentUrl = string.Empty;
+            if (string.IsNullOrWhiteSpace(uploadedUrl) && !TrySaveInlineChatAttachment(out inlineAttachmentUrl, out var inlineUploadError))
+            {
+                ShowMessage(pnlChatMessage, litChatMessage, inlineUploadError, false);
+                return;
+            }
+
+            var attachmentUrl = !string.IsNullOrWhiteSpace(uploadedUrl)
+                ? uploadedUrl
+                : (!string.IsNullOrWhiteSpace(inlineAttachmentUrl) ? inlineAttachmentUrl : txtChatAttachmentUrl.Text.Trim());
 
             if (messageType == "VideoCall" && string.IsNullOrWhiteSpace(content))
             {
@@ -281,6 +311,8 @@ namespace DramaMurderGraduation.Web
                 txtChatContent.Text = string.Empty;
                 txtChatAttachmentUrl.Text = string.Empty;
                 txtChatLocation.Text = string.Empty;
+                hdnChatInlineFileData.Value = string.Empty;
+                hdnChatInlineFileName.Value = string.Empty;
             }
 
             BindPage();
@@ -650,7 +682,17 @@ namespace DramaMurderGraduation.Web
             }
 
             var currentUser = AuthManager.GetCurrentUser();
-            var success = _accountRepository.RevokeFriendMessage(currentUser.UserId, messageId, out var message);
+            bool success;
+            string message;
+            if (string.Equals(Convert.ToString(e.CommandName), "ClaimMoney", StringComparison.OrdinalIgnoreCase))
+            {
+                success = _accountRepository.ClaimPeerTransfer(currentUser.UserId, messageId, out message);
+            }
+            else
+            {
+                success = _accountRepository.RevokeFriendMessage(currentUser.UserId, messageId, out message);
+            }
+
             ShowMessage(pnlChatMessage, litChatMessage, message, success);
             BindPage();
         }
@@ -785,9 +827,44 @@ namespace DramaMurderGraduation.Web
             }
         }
 
-        public bool CanRevokeMessage(object senderUserId, object isRevoked)
+        public bool CanRevokeMessage(object senderUserId, object isRevoked, object messageType = null, object transferStatus = null)
         {
-            return SafeToInt(senderUserId) == AuthManager.GetCurrentUser().UserId && !(isRevoked != null && isRevoked != DBNull.Value && Convert.ToBoolean(isRevoked));
+            if (SafeToInt(senderUserId) != AuthManager.GetCurrentUser().UserId ||
+                (isRevoked != null && isRevoked != DBNull.Value && Convert.ToBoolean(isRevoked)))
+            {
+                return false;
+            }
+
+            var type = Convert.ToString(messageType);
+            var isMoney = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(type, "Transfer", StringComparison.OrdinalIgnoreCase);
+            if (!isMoney)
+            {
+                return true;
+            }
+
+            return string.Equals(Convert.ToString(transferStatus), "Pending", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public bool CanClaimMoneyMessage(object messageType, object receiverUserId, object transferStatus, object isRevoked)
+        {
+            if (isRevoked != null && isRevoked != DBNull.Value && Convert.ToBoolean(isRevoked))
+            {
+                return false;
+            }
+
+            var type = Convert.ToString(messageType);
+            var isMoney = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(type, "Transfer", StringComparison.OrdinalIgnoreCase);
+            if (!isMoney)
+            {
+                return false;
+            }
+
+            var currentUser = AuthManager.GetCurrentUser();
+            return currentUser != null &&
+                   SafeToInt(receiverUserId) == currentUser.UserId &&
+                   string.Equals(Convert.ToString(transferStatus), "Pending", StringComparison.OrdinalIgnoreCase);
         }
 
         public string GetChatBody(object content, object isRevoked)
@@ -901,6 +978,19 @@ namespace DramaMurderGraduation.Web
                 : "wx-request-card wx-transfer-record transfer";
         }
 
+        public string GetTransferStatusLabel(object status)
+        {
+            switch (Convert.ToString(status))
+            {
+                case "Pending":
+                    return "待收取";
+                case "Refunded":
+                    return "已退回";
+                default:
+                    return "已收取";
+            }
+        }
+
         public string HtmlEncode(object value)
         {
             return HttpUtility.HtmlEncode(Convert.ToString(value));
@@ -916,7 +1006,7 @@ namespace DramaMurderGraduation.Web
             return new HtmlString(HighlightKeyword(GetChatBody(content, isRevoked), ConversationSearchKeyword));
         }
 
-        public IHtmlString RenderChatMessageContent(object messageType, object content, object isRevoked)
+        public IHtmlString RenderChatMessageContent(object messageType, object content, object isRevoked, object transferStatus, object claimedAt)
         {
             if (isRevoked != null && isRevoked != DBNull.Value && Convert.ToBoolean(isRevoked))
             {
@@ -929,8 +1019,8 @@ namespace DramaMurderGraduation.Web
             {
                 var rawContent = Convert.ToString(content);
                 var amountText = ExtractMoneyAmount(rawContent);
-                var label = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "\u5fae\u4fe1\u7ea2\u5305" : "\u5fae\u4fe1\u8f6c\u8d26";
-                var status = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "\u5df2\u5b58\u5165\u5bf9\u65b9\u4f59\u989d" : "\u5df2\u8f6c\u5165\u5bf9\u65b9\u4f59\u989d";
+                var label = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "互动红包" : "好友转账";
+                var status = GetMoneyCardStatus(messageType, transferStatus, claimedAt);
                 var css = string.Equals(type, "RedPacket", StringComparison.OrdinalIgnoreCase) ? "redpacket" : "transfer";
                 var note = StripMoneyPrefix(rawContent);
                 if (string.IsNullOrWhiteSpace(note))
@@ -956,6 +1046,29 @@ namespace DramaMurderGraduation.Web
             }
 
             return new HtmlString("<p>" + HighlightKeyword(GetChatBody(content, isRevoked), ConversationSearchKeyword) + "</p>");
+        }
+
+        private static string GetMoneyCardStatus(object messageType, object transferStatus, object claimedAt)
+        {
+            var status = Convert.ToString(transferStatus);
+            if (string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                return "待收取，点击下方按钮后入账";
+            }
+
+            if (string.Equals(status, "Refunded", StringComparison.OrdinalIgnoreCase))
+            {
+                return "已撤回并退回余额";
+            }
+
+            if (claimedAt != null && claimedAt != DBNull.Value)
+            {
+                return "已收取 · " + Convert.ToDateTime(claimedAt).ToString("MM-dd HH:mm");
+            }
+
+            return string.Equals(Convert.ToString(messageType), "RedPacket", StringComparison.OrdinalIgnoreCase)
+                ? "已存入余额"
+                : "已转入余额";
         }
 
         private static string ExtractMoneyAmount(string content)
@@ -987,6 +1100,99 @@ namespace DramaMurderGraduation.Web
             return new HtmlString("<p class=\"chat-location\">位置：" + HighlightKeyword(value, ConversationSearchKeyword) + "</p>");
         }
 
+        private bool TrySaveInlineChatAttachment(out string relativeUrl, out string error)
+        {
+            relativeUrl = string.Empty;
+            error = string.Empty;
+
+            var dataUrl = hdnChatInlineFileData.Value;
+            if (string.IsNullOrWhiteSpace(dataUrl))
+            {
+                return true;
+            }
+
+            var match = Regex.Match(
+                dataUrl.Trim(),
+                @"\Adata:(?<mime>image/(png|jpeg|jpg|webp|gif)|audio/(webm|mpeg|mp3|wav|ogg|mp4|aac))(?:;[^,;]+=[^,;]+)*;base64,(?<data>[A-Za-z0-9+/=\r\n]+)\z",
+                RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                error = "工具生成的附件格式不支持，请改用文件上传。";
+                return false;
+            }
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(match.Groups["data"].Value);
+            }
+            catch (FormatException)
+            {
+                error = "工具生成的附件内容无效，请重新截取或录制。";
+                return false;
+            }
+
+            if (bytes.Length > 3 * 1024 * 1024)
+            {
+                error = "工具生成的附件不能超过 3MB，请改用文件上传。";
+                return false;
+            }
+
+            var extension = GetInlineAttachmentExtension(match.Groups["mime"].Value);
+            var monthFolder = DateTime.Now.ToString("yyyyMM");
+            var virtualFolder = "~/Uploads/Friends/chat/" + monthFolder;
+            var absoluteFolder = Server.MapPath(virtualFolder);
+            Directory.CreateDirectory(absoluteFolder);
+
+            var fileName = Guid.NewGuid().ToString("N") + extension;
+            var absolutePath = Path.Combine(absoluteFolder, fileName);
+            File.WriteAllBytes(absolutePath, bytes);
+
+            relativeUrl = "Uploads/Friends/chat/" + monthFolder + "/" + fileName;
+            return true;
+        }
+
+        private static string GetInlineAttachmentExtension(string mimeType)
+        {
+            switch ((mimeType ?? string.Empty).ToLowerInvariant())
+            {
+                case "image/png":
+                    return ".png";
+                case "image/webp":
+                    return ".webp";
+                case "image/gif":
+                    return ".gif";
+                case "audio/mpeg":
+                case "audio/mp3":
+                    return ".mp3";
+                case "audio/wav":
+                    return ".wav";
+                case "audio/ogg":
+                    return ".ogg";
+                case "audio/mp4":
+                case "audio/aac":
+                    return ".m4a";
+                case "audio/webm":
+                    return ".webm";
+                default:
+                    return ".jpg";
+            }
+        }
+
+        private string ResolveAttachmentDisplayUrl(string value)
+        {
+            var trimmed = (value ?? string.Empty).Trim();
+            if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("/", StringComparison.Ordinal))
+            {
+                return trimmed;
+            }
+
+            return ResolveUrl(trimmed.StartsWith("~/", StringComparison.Ordinal) ? trimmed : "~/" + trimmed.TrimStart('/'));
+        }
+
         public IHtmlString RenderChatAttachment(object attachmentUrl)
         {
             var value = Convert.ToString(attachmentUrl);
@@ -995,8 +1201,35 @@ namespace DramaMurderGraduation.Web
                 return new HtmlString(string.Empty);
             }
 
-            var safeUrl = HttpUtility.HtmlAttributeEncode(value);
+            var displayUrl = ResolveAttachmentDisplayUrl(value);
+            var safeUrl = HttpUtility.HtmlAttributeEncode(displayUrl);
+            var extension = GetAttachmentExtension(value);
+
+            if (extension == ".jpg" || extension == ".jpeg" || extension == ".png" || extension == ".gif" || extension == ".webp")
+            {
+                return new HtmlString("<p class=\"chat-attachment image\"><a href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\"><img class=\"chat-attachment-image\" src=\"" + safeUrl + "\" alt=\"聊天图片\" /></a></p>");
+            }
+
+            if (extension == ".mp3" || extension == ".wav" || extension == ".m4a" || extension == ".aac" || extension == ".ogg" || extension == ".webm")
+            {
+                return new HtmlString("<p class=\"chat-attachment audio\"><audio class=\"chat-attachment-audio\" controls src=\"" + safeUrl + "\"></audio></p>");
+            }
+
+            if (extension == ".mp4")
+            {
+                return new HtmlString("<p class=\"chat-attachment video\"><video class=\"chat-attachment-video\" controls src=\"" + safeUrl + "\"></video></p>");
+            }
+
             return new HtmlString("<p class=\"chat-attachment\"><a class=\"text-link strong\" href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\">查看照片 / 附件</a></p>");
+        }
+
+        private static string GetAttachmentExtension(string value)
+        {
+            var path = (value ?? string.Empty).Split('?')[0].Split('#')[0];
+            var slashIndex = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+            var fileName = slashIndex >= 0 ? path.Substring(slashIndex + 1) : path;
+            var dotIndex = fileName.LastIndexOf('.');
+            return dotIndex >= 0 ? fileName.Substring(dotIndex).ToLowerInvariant() : string.Empty;
         }
 
         public IHtmlString RenderChatLocation(object locationText)
@@ -1057,7 +1290,7 @@ namespace DramaMurderGraduation.Web
                 UserId = currentUser.UserId,
                 LoginConfirmMode = "MobileConfirm",
                 KeepChatHistory = true,
-                StoragePath = @"C:\Users\Aurora\xwechat_files",
+                StoragePath = @"C:\Users\Aurora\DramaMurderChatFiles",
                 AutoDownloadMaxMb = 20,
                 NotificationEnabled = true,
                 PluginEnabled = true,

@@ -1,0 +1,26 @@
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+}
+
+.avatar {
+  width: 104rpx;
+  height: 104rpx;
+  line-height: 104rpx;
+  text-align: center;
+  border-radius: 52rpx;
+  background: #211d1b;
+  color: #fff;
+  font-size: 42rpx;
+  font-weight: 800;
+}
+
+.name {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.logout {
+  margin-top: 28rpx;
+}

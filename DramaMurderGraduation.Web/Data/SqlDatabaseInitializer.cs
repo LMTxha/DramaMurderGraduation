@@ -8,14 +8,25 @@ using System.Web.Hosting;
 
 namespace DramaMurderGraduation.Web.Data
 {
+    /// <summary>
+    /// 本地数据库自动初始化器。
+    /// 站点启动时会调用 EnsureDatabase，负责创建/附加 LocalDB 数据库、执行基础建表脚本和后续增量迁移。
+    /// </summary>
     public static class SqlDatabaseInitializer
     {
+        // SchemaMigrations 中记录这些 key，用来判断哪些初始化或增量脚本已经执行过。
         private const string BaseSchemaMigrationKey = "base-schema";
         private const string IncrementalFeaturesMigrationKey = "incremental-features";
         private const string IncrementalFeaturesMigrationVersion = "2026-04-24-v3";
+
+        // ASP.NET 可能并发触发多个请求，锁和 _initialized 用于保证进程内只初始化一次。
         private static readonly object SyncRoot = new object();
         private static bool _initialized;
 
+        /// <summary>
+        /// 确保数据库处于可运行状态。
+        /// 执行顺序：解析数据库目录 -> 创建或附加 mdf/ldf -> 检查基础表 -> 执行增量迁移。
+        /// </summary>
         public static void EnsureDatabase()
         {
             if (_initialized)
@@ -47,15 +58,21 @@ namespace DramaMurderGraduation.Web.Data
                 var databaseCreated = EnsureDatabaseFiles(databaseName, mdfPath, ldfPath);
                 if (databaseCreated || !HasRequiredSchema(databaseName))
                 {
+                    // 新建库或缺少核心表时，重新执行基础 SQL，保证页面依赖的表存在。
                     EnsureSchema(databaseName, databaseScriptPath);
                 }
 
+                // 增量迁移用于补齐后续开发新增的字段和表，适合本地重复运行。
                 EnsureIncrementalFeatures(databaseName);
 
                 _initialized = true;
             }
         }
 
+        /// <summary>
+        /// 解析 Web.config 中的 DatabaseDirectory。
+        /// 支持绝对路径、站点相对路径和应用程序基目录相对路径。
+        /// </summary>
         private static string ResolveDatabaseDirectory()
         {
             var configuredDirectory = ConfigurationManager.AppSettings["DatabaseDirectory"];
@@ -78,6 +95,10 @@ namespace DramaMurderGraduation.Web.Data
             return string.Empty;
         }
 
+        /// <summary>
+        /// 构造连接 master 数据库的连接字符串。
+        /// 创建数据库或 attach mdf/ldf 必须先连接 master。
+        /// </summary>
         private static string BuildMasterConnectionString()
         {
             var builder = new SqlConnectionStringBuilder(ConfigurationManager.ConnectionStrings["DramaMurderDb"].ConnectionString)
@@ -89,6 +110,10 @@ namespace DramaMurderGraduation.Web.Data
             return builder.ConnectionString;
         }
 
+        /// <summary>
+        /// 构造连接业务数据库的连接字符串。
+        /// 这里清空 AttachDBFilename，统一使用 InitialCatalog 访问已附加的数据库。
+        /// </summary>
         private static string BuildDatabaseConnectionString(string databaseName)
         {
             var builder = new SqlConnectionStringBuilder(ConfigurationManager.ConnectionStrings["DramaMurderDb"].ConnectionString)
@@ -100,6 +125,10 @@ namespace DramaMurderGraduation.Web.Data
             return builder.ConnectionString;
         }
 
+        /// <summary>
+        /// 创建或附加数据库文件。
+        /// 如果数据库名已经存在，说明 SQL Server 已经能访问该库；如果 mdf/ldf 存在则 attach，否则创建新库文件。
+        /// </summary>
         private static bool EnsureDatabaseFiles(string databaseName, string mdfPath, string ldfPath)
         {
             using (var connection = new SqlConnection(BuildMasterConnectionString()))
@@ -143,6 +172,10 @@ LOG ON (
             }
         }
 
+        /// <summary>
+        /// 检查页面运行必须依赖的核心表是否存在。
+        /// 只检查关键表，避免每次启动都扫描完整 schema。
+        /// </summary>
         private static bool HasRequiredSchema(string databaseName)
         {
             var requiredTables = new[]
@@ -177,6 +210,10 @@ LOG ON (
             return true;
         }
 
+        /// <summary>
+        /// 执行增量迁移，补齐后续功能新增的列、表、索引和测试数据。
+        /// SQL 内部大量使用 IF COL_LENGTH/OBJECT_ID 判断，保证重复执行时不会报错。
+        /// </summary>
         private static void EnsureIncrementalFeatures(string databaseName)
         {
             const string sql = @"
@@ -1431,6 +1468,9 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 执行基础建库脚本，并把执行结果记录到 SchemaMigrations。
+        /// </summary>
         private static void EnsureSchema(string databaseName, string scriptPath)
         {
             using (var connection = new SqlConnection(BuildDatabaseConnectionString(databaseName)))
@@ -1464,11 +1504,18 @@ END;";
             }
         }
 
+        /// <summary>
+        /// 转义 SQL 字符串字面量中的单引号，主要用于数据库文件路径。
+        /// </summary>
         private static string EscapeSqlLiteral(string value)
         {
             return value.Replace("'", "''");
         }
 
+        /// <summary>
+        /// 确保迁移记录表存在。
+        /// 后续所有基础脚本和增量脚本都会在该表中记录校验和与执行结果。
+        /// </summary>
         private static void EnsureSchemaMigrationsTable(SqlConnection connection)
         {
             ExecuteNonQuery(connection, @"
@@ -1491,6 +1538,10 @@ BEGIN
 END;");
         }
 
+        /// <summary>
+        /// 执行带记录的迁移。
+        /// 如果相同 migrationKey 和 checksum 已成功执行，则跳过；否则标记开始、执行脚本、标记完成。
+        /// </summary>
         private static void ExecuteTrackedMigration(SqlConnection connection, string migrationKey, string description, string scriptChecksum, Action applyMigration)
         {
             if (string.IsNullOrWhiteSpace(migrationKey))
@@ -1521,6 +1572,10 @@ END;");
             }
         }
 
+        /// <summary>
+        /// 判断迁移是否需要执行。
+        /// checksum 变化时会重新执行，便于开发阶段调整同一个迁移块。
+        /// </summary>
         private static bool ShouldApplyMigration(SqlConnection connection, string migrationKey, string scriptChecksum)
         {
             using (var command = connection.CreateCommand())
@@ -1538,6 +1593,9 @@ WHERE MigrationKey = @MigrationKey
             }
         }
 
+        /// <summary>
+        /// 标记迁移开始执行。
+        /// </summary>
         private static void MarkMigrationStarted(SqlConnection connection, string migrationKey, string description, string scriptChecksum)
         {
             using (var command = connection.CreateCommand())
@@ -1565,6 +1623,9 @@ WHEN NOT MATCHED THEN
             }
         }
 
+        /// <summary>
+        /// 标记迁移执行完成，并记录成功或失败信息。
+        /// </summary>
         private static void MarkMigrationCompleted(SqlConnection connection, string migrationKey, string description, string scriptChecksum, bool succeeded, string errorMessage)
         {
             using (var command = connection.CreateCommand())
@@ -1587,6 +1648,9 @@ WHERE MigrationKey = @MigrationKey;";
             }
         }
 
+        /// <summary>
+        /// 计算脚本内容 SHA-256 校验和，用于判断迁移内容是否变化。
+        /// </summary>
         private static string ComputeChecksum(string content)
         {
             using (var sha256 = SHA256.Create())
@@ -1597,6 +1661,9 @@ WHERE MigrationKey = @MigrationKey;";
             }
         }
 
+        /// <summary>
+        /// 补齐用户公开编号相关字段和索引。
+        /// </summary>
         private static void EnsureUserPublicCodeSchema(SqlConnection connection)
         {
             ExecuteNonQuery(connection, @"
@@ -1618,6 +1685,9 @@ BEGIN
 END;");
         }
 
+        /// <summary>
+        /// 补齐预约、售后、通知、客服沟通等工作流兼容字段。
+        /// </summary>
         private static void EnsureWorkflowCompatibilitySchema(SqlConnection connection)
         {
             ExecuteNonQuery(connection, @"
@@ -1776,6 +1846,10 @@ BEGIN
 END;");
         }
 
+        /// <summary>
+        /// 补齐游戏生命周期相关表结构。
+        /// 包括阶段、角色分配、线索解锁、投票、行动日志和结算字段。
+        /// </summary>
         private static void EnsureGameLifecycleSchema(SqlConnection connection)
         {
             ExecuteNonQuery(connection, @"
@@ -1897,6 +1971,9 @@ BEGIN
 END;");
         }
 
+        /// <summary>
+        /// 执行无返回结果的 SQL 片段。
+        /// </summary>
         private static void ExecuteNonQuery(SqlConnection connection, string sql)
         {
             using (var command = connection.CreateCommand())

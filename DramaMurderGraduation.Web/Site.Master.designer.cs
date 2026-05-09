@@ -12,9 +12,11 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.PlaceHolder phLoggedIn;
         protected global::System.Web.UI.WebControls.PlaceHolder phSocialNav;
         protected global::System.Web.UI.WebControls.Literal litSocialNavLabel;
+        protected global::System.Web.UI.WebControls.PlaceHolder phMyRoomsNav;
         protected global::System.Web.UI.WebControls.PlaceHolder phAdmin;
         protected global::System.Web.UI.WebControls.HyperLink lnkAnalyticsNav;
         protected global::System.Web.UI.WebControls.HyperLink lnkAdminReviewNav;
+        protected global::System.Web.UI.WebControls.HyperLink lnkAdminScriptOccupancyNav;
         protected global::System.Web.UI.WebControls.PlaceHolder phDm;
         protected global::System.Web.UI.WebControls.PlaceHolder phAnonymous;
         protected global::System.Web.UI.WebControls.PlaceHolder phMemberMenu;

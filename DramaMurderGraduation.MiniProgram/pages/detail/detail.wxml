@@ -1,0 +1,36 @@
+<view class="page">
+  <view class="detail-head">
+    <image class="cover" mode="aspectFill" src="{{script.CoverImage || '/assets/cover-placeholder.png'}}"></image>
+    <view class="head-body">
+      <view class="title">{{script.Name}}</view>
+      <view class="muted">{{script.GenreName}} · {{script.PlayerMin}}-{{script.PlayerMax}}人</view>
+      <view class="price">￥{{script.Price}} / 人</view>
+      <button class="button" data-id="{{script.Id}}" bindtap="book">立即预约</button>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">故事简介</view>
+    <view class="card text-block">{{script.StoryBackground || script.Slogan}}</view>
+  </view>
+
+  <view class="section" wx:if="{{characters.length}}">
+    <view class="section-title">角色阵容</view>
+    <view wx:for="{{characters}}" wx:key="Id" class="card character">
+      <view class="script-title">{{item.Name}}</view>
+      <view class="muted">{{item.Gender}} · {{item.Profession}}</view>
+      <view class="summary">{{item.Description}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">可约场次</view>
+    <view wx:for="{{sessions}}" wx:key="Id" class="card session" data-id="{{item.Id}}" bindtap="bookSession">
+      <view>
+        <view class="script-title">{{item.RoomName}}</view>
+        <view class="muted">{{item.HostName || '待定DM'}} · ￥{{item.BasePrice}}</view>
+      </view>
+      <view class="right">{{item.RemainingSeats}}席</view>
+    </view>
+  </view>
+</view>

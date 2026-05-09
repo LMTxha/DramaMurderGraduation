@@ -1,0 +1,41 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/scripts/scripts",
+    "pages/detail/detail",
+    "pages/booking/booking",
+    "pages/orders/orders",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "雾城剧本研究所",
+    "navigationBarBackgroundColor": "#151619",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f2ec"
+  },
+  "tabBar": {
+    "color": "#777777",
+    "selectedColor": "#a83c32",
+    "backgroundColor": "#fffaf2",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/scripts/scripts",
+        "text": "剧本"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}

@@ -3,11 +3,18 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 个人设置页面。
+    /// 负责头像上传、公开编号、扩展资料、桌面偏好、退出登录和修改密码。
+    /// </summary>
     public partial class SettingsPage : System.Web.UI.Page
     {
         private readonly AccountRepository _accountRepository = new AccountRepository();
         private readonly FriendWorkspaceRepository _workspaceRepository = new FriendWorkspaceRepository();
 
+        /// <summary>
+        /// 设置上传表单编码、校验登录，并在首次加载时绑定用户设置。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (Page.Form != null)
@@ -33,6 +40,10 @@ namespace DramaMurderGraduation.Web
             SaveProfile();
         }
 
+        /// <summary>
+        /// 保存个人资料。
+        /// 如果上传了头像文件，会先保存文件，再把头像地址写入用户资料。
+        /// </summary>
         private void SaveProfile()
         {
             pnlProfileMessage.Visible = true;

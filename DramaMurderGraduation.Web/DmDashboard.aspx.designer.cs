@@ -13,6 +13,14 @@ namespace DramaMurderGraduation.Web
         protected global::System.Web.UI.WebControls.Literal litRoleName;
         protected global::System.Web.UI.WebControls.Literal litDmName;
         protected global::System.Web.UI.WebControls.Literal litSessionCount;
+        protected global::System.Web.UI.WebControls.Literal litTodaySessionCount;
+        protected global::System.Web.UI.WebControls.Literal litPendingAcceptCount;
+        protected global::System.Web.UI.WebControls.Literal litActiveSessionCount;
+        protected global::System.Web.UI.WebControls.Repeater rptScheduleDays;
+        protected global::System.Web.UI.WebControls.Repeater rptTodaySessions;
+        protected global::System.Web.UI.WebControls.Repeater rptChecklistSessions;
+        protected global::System.Web.UI.WebControls.Panel pnlMessage;
+        protected global::System.Web.UI.WebControls.Literal litMessage;
         protected global::System.Web.UI.WebControls.Repeater rptSessions;
     }
 }

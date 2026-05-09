@@ -1,0 +1,20 @@
+<view class="page">
+  <input class="input" placeholder="搜索剧本、作者或关键词" value="{{keyword}}" bindinput="onKeyword" confirm-type="search" bindconfirm="loadScripts" />
+  <view class="genre-bar">
+    <view class="genre {{!genreId ? 'active' : ''}}" bindtap="clearGenre">全部</view>
+    <view wx:for="{{genres}}" wx:key="Id" class="genre {{genreId === item.Id ? 'active' : ''}}" data-id="{{item.Id}}" bindtap="pickGenre">{{item.Name}}</view>
+  </view>
+
+  <view wx:for="{{scripts}}" wx:key="Id" class="card script-card" data-id="{{item.Id}}" bindtap="openDetail">
+    <image class="cover" mode="aspectFill" src="{{item.CoverImage || '/assets/cover-placeholder.png'}}"></image>
+    <view class="script-body">
+      <view class="script-title">{{item.Name}}</view>
+      <view class="muted">{{item.GenreName}} · {{item.PlayerMin}}-{{item.PlayerMax}}人 · {{item.DurationMinutes}}分钟</view>
+      <view class="summary">{{item.Slogan || item.StoryBackground}}</view>
+      <view class="bottom">
+        <text>￥{{item.Price}}</text>
+        <text>{{item.AverageRating}}分</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,4 +1,7 @@
-﻿SET NOCOUNT ON;
+-- 演示模拟数据脚本，用于填充首页、预约、评价、好友和游戏流程所需的样例数据。
+-- 执行前请确认目标数据库和连接上下文，避免覆盖非演示环境数据。
+
+SET NOCOUNT ON;
 
 IF OBJECT_ID(N'dbo.ShowcasePages', N'U') IS NULL
 BEGIN
@@ -94,20 +97,21 @@ BEGIN
 END
 GO
 
-DECLARE @PasswordHash NVARCHAR(64) = N'8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
+DECLARE @AdminPasswordHash NVARCHAR(64) = N'ac0e7d037817094e9e0b4441f9bae3209d67b02fa484917065f71b16109a1a78';
+DECLARE @DemoPasswordHash NVARCHAR(64) = N'8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92';
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Users)
 BEGIN
     INSERT INTO dbo.Users(Username, PasswordHash, DisplayName, Email, Phone, RoleCode, ReviewStatus, ReviewRemark, Balance, CreatedAt, ReviewedAt)
     VALUES
-    (N'admin', @PasswordHash, N'系统管理员', N'admin@dramamurder.local', N'13800000000', N'Admin', N'Approved', N'默认管理员账号', 2000, GETDATE(), GETDATE()),
-    (N'dm01', @PasswordHash, N'门店 DM 阿岚', N'dm01@dramamurder.local', N'13800000001', N'DM', N'Approved', N'门店主持人账号', 1500, GETDATE(), GETDATE()),
-    (N'user1', @PasswordHash, N'玩家一号', N'user1@dramamurder.local', N'13800001001', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
-    (N'user2', @PasswordHash, N'玩家二号', N'user2@dramamurder.local', N'13800001002', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
-    (N'user3', @PasswordHash, N'玩家三号', N'user3@dramamurder.local', N'13800001003', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
-    (N'user4', @PasswordHash, N'玩家四号', N'user4@dramamurder.local', N'13800001004', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
-    (N'user5', @PasswordHash, N'玩家五号', N'user5@dramamurder.local', N'13800001005', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
-    (N'user6', @PasswordHash, N'玩家六号', N'user6@dramamurder.local', N'13800001006', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE());
+    (N'admin', @AdminPasswordHash, N'系统管理员', N'admin@dramamurder.local', N'13800000000', N'Admin', N'Approved', N'默认管理员账号', 2000, GETDATE(), GETDATE()),
+    (N'DM', @DemoPasswordHash, N'门店 DM 阿岚', N'dm@dramamurder.local', N'13800000001', N'DM', N'Approved', N'门店主持人账号', 1500, GETDATE(), GETDATE()),
+    (N'user1', @DemoPasswordHash, N'玩家一号', N'user1@dramamurder.local', N'13800001001', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
+    (N'user2', @DemoPasswordHash, N'玩家二号', N'user2@dramamurder.local', N'13800001002', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
+    (N'user3', @DemoPasswordHash, N'玩家三号', N'user3@dramamurder.local', N'13800001003', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
+    (N'user4', @DemoPasswordHash, N'玩家四号', N'user4@dramamurder.local', N'13800001004', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
+    (N'user5', @DemoPasswordHash, N'玩家五号', N'user5@dramamurder.local', N'13800001005', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE()),
+    (N'user6', @DemoPasswordHash, N'玩家六号', N'user6@dramamurder.local', N'13800001006', N'Player', N'Approved', N'演示玩家账号', 1200, GETDATE(), GETDATE());
 END
 GO
 

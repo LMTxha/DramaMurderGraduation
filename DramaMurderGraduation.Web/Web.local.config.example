@@ -1,0 +1,4 @@
+<appSettings>
+  <!-- Copy this file to Web.local.config and fill local-only secrets there. -->
+  <add key="AiNvidiaApiKey" value="" />
+</appSettings>

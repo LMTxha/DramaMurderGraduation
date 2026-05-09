@@ -8,10 +8,18 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 数据驱动功能展示页的公共基类。
+    /// 多个中文功能页只保留统一的 aspx 模板，具体标题、按钮、统计卡片和分区内容都从 ShowcaseRepository 读取。
+    /// </summary>
     public class FeatureShowcasePage : Page
     {
         private readonly ShowcaseRepository _repository = new ShowcaseRepository();
 
+        /// <summary>
+        /// 首次加载页面时绑定数据库内容。
+        /// 回发时跳过绑定，避免覆盖用户在页面控件中的输入状态。
+        /// </summary>
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
@@ -24,6 +32,10 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 分区 Repeater 绑定时继续绑定其内部条目 Repeater。
+        /// Web Forms 的嵌套 Repeater 需要在 ItemDataBound 里手动设置内层数据源。
+        /// </summary>
         protected void rptSections_ItemDataBound(object sender, RepeaterItemEventArgs e)
         {
             if (e.Item.ItemType != ListItemType.Item && e.Item.ItemType != ListItemType.AlternatingItem)
@@ -51,6 +63,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 根据当前 aspx 文件名查找展示页配置，并把配置写入模板控件。
+        /// </summary>
         private void BindPage()
         {
             var pageKey = Path.GetFileNameWithoutExtension(Request.FilePath) ?? string.Empty;
@@ -84,6 +99,10 @@ namespace DramaMurderGraduation.Web
             BindRepeater("rptSections", pageInfo.Sections);
         }
 
+        /// <summary>
+        /// 按控件 Id 查找 Literal 并写入文本。
+        /// 使用递归查找是因为模板控件可能被 MasterPage 或 Repeater 容器包裹。
+        /// </summary>
         private void WriteLiteral(string controlId, string value)
         {
             var literal = FindRecursive(this, controlId) as Literal;
@@ -93,6 +112,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 按控件 Id 查找 Repeater 并绑定数据源。
+        /// </summary>
         private void BindRepeater(string controlId, object dataSource)
         {
             var repeater = FindRecursive(this, controlId) as Repeater;
@@ -103,6 +125,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 绑定按钮链接；文案或地址缺失时隐藏按钮。
+        /// </summary>
         private void BindHyperLink(string controlId, string text, string url)
         {
             var link = FindRecursive(this, controlId) as HyperLink;
@@ -117,6 +142,9 @@ namespace DramaMurderGraduation.Web
             link.NavigateUrl = url ?? string.Empty;
         }
 
+        /// <summary>
+        /// 在当前控件树中递归查找指定 ID 的控件。
+        /// </summary>
         private static Control FindRecursive(Control root, string id)
         {
             if (root == null)

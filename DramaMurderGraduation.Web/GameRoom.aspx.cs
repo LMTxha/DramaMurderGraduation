@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Web;
 using System.Web.Script.Services;
 using System.Web.Services;
 using DramaMurderGraduation.Web.Data;
@@ -7,11 +9,18 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// 游戏房间页面。
+    /// 首屏渲染房间基本信息，实时状态、聊天、准备、搜证、投票和 DM 操作通过 WebMethod 提供给前端轮询/调用。
+    /// </summary>
     public partial class GameRoomPage : System.Web.UI.Page
     {
         private readonly ContentRepository _repository = new ContentRepository();
         private readonly GameRepository _gameRepository = new GameRepository();
 
+        /// <summary>
+        /// 页面首次加载时校验登录，并绑定预约对应的房间基础信息。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireApprovedUser();
@@ -22,12 +31,27 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 根据 reservationId 查询订单和场次，并初始化游戏数据。
+        /// 普通玩家只能访问自己的预约，DM/后台角色可以查看所管理的房间。
+        /// </summary>
         private void BindRoom()
         {
             var currentUser = AuthManager.GetCurrentUser();
             int reservationId;
             if (!int.TryParse(Request.QueryString["reservationId"], out reservationId) || reservationId <= 0)
             {
+                if (currentUser != null && currentUser.CanManageGameRoom &&
+                    int.TryParse(Request.QueryString["sessionId"], out var sessionId) && sessionId > 0)
+                {
+                    if (_repository.EnsureHostReservationForSession(sessionId, currentUser.UserId, currentUser.IsAdmin, out reservationId, out var ignoredMessage))
+                    {
+                        Response.Redirect("GameRoom.aspx?reservationId=" + reservationId + "&module=" + HttpUtility.UrlEncode(RoomModuleKey) + "&host=1", false);
+                        Context.ApplicationInstance.CompleteRequest();
+                        return;
+                    }
+                }
+
                 ShowNotFound();
                 return;
             }
@@ -42,10 +66,17 @@ namespace DramaMurderGraduation.Web
                 return;
             }
 
+            if (!IsActiveReservation(reservation.Status) && !(currentUser != null && currentUser.CanManageGameRoom && IsHostEntryReservation(reservation.Status)))
+            {
+                ShowNotFound();
+                return;
+            }
+
             _gameRepository.EnsureSessionGameData(reservation.SessionId);
 
             pnlNotFound.Visible = false;
             pnlRoom.Visible = true;
+            pnlRoom.CssClass = "game-room-module-page game-room-module-" + RoomModuleKey;
 
             litReservationId.Text = reservation.Id.ToString();
             litReservationStatus.Text = reservation.Status;
@@ -56,9 +87,10 @@ namespace DramaMurderGraduation.Web
             litTotalAmount.Text = reservation.TotalAmount.ToString("F2");
             litPlayerCount.Text = reservation.PlayerCount.ToString();
             litPaymentStatus.Text = reservation.PaymentStatus;
-            litRoomName.Text = reservation.RoomName;
+            litRoomName.Text = RoomNavigationHelper.RenderRoomSelectLink(reservation);
             litSessionTime.Text = reservation.SessionDateTime.ToString("yyyy-MM-dd HH:mm");
             litContactName.Text = reservation.ContactName;
+            btnLeaveGame.Visible = currentUser != null && !currentUser.CanManageGameRoom;
         }
 
         private void ShowNotFound()
@@ -67,8 +99,30 @@ namespace DramaMurderGraduation.Web
             pnlNotFound.Visible = true;
         }
 
+        protected void btnLeaveGame_Click(object sender, EventArgs e)
+        {
+            var currentUser = AuthManager.GetCurrentUser();
+            if (currentUser == null || currentUser.CanManageGameRoom)
+            {
+                ShowNotFound();
+                return;
+            }
+
+            if (!int.TryParse(Request.QueryString["reservationId"], out var reservationId) || reservationId <= 0)
+            {
+                ShowNotFound();
+                return;
+            }
+
+            _repository.LeaveReservationByPlayer(reservationId, currentUser.UserId, out var message);
+            Response.Redirect("~/PlayerHub.aspx?tab=orders", true);
+        }
+
         [WebMethod(EnableSession = true)]
         [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+        /// <summary>
+        /// 前端轮询用接口：返回房间参与者、消息、阶段、线索、投票等完整状态。
+        /// </summary>
         public static object GetRoomState(int reservationId)
         {
             var reservation = ResolveReservation(reservationId);
@@ -146,6 +200,9 @@ namespace DramaMurderGraduation.Web
                         canFinishGame = game.Lifecycle.CanFinishGame,
                         canSubmitAction = game.Lifecycle.CanSubmitAction,
                         canSubmitVote = game.Lifecycle.CanSubmitVote,
+                        eliminatedCount = game.Lifecycle.EliminatedCount,
+                        eliminatedCharacterName = game.Lifecycle.EliminatedCharacterName,
+                        eliminatedPlayerName = game.Lifecycle.EliminatedPlayerName,
                         statusText = game.Lifecycle.StatusText,
                         resumeSummary = game.Lifecycle.ResumeSummary,
                         gameStartedAtText = ToFullDateTimeText(game.Lifecycle.GameStartedAt),
@@ -190,7 +247,9 @@ namespace DramaMurderGraduation.Web
                         game.CurrentAssignment.Personality,
                         game.CurrentAssignment.CharacterDescription,
                         game.CurrentAssignment.SecretLine,
-                        game.CurrentAssignment.IsReady
+                        game.CurrentAssignment.IsReady,
+                        game.CurrentAssignment.IsEliminated,
+                        EliminatedAtText = ToShortDateTimeText(game.CurrentAssignment.EliminatedAt)
                     },
                     assignments = game.Assignments.Select(item => new
                     {
@@ -202,7 +261,9 @@ namespace DramaMurderGraduation.Web
                         item.CharacterName,
                         item.Profession,
                         item.Personality,
-                        item.IsReady
+                        item.IsReady,
+                        item.IsEliminated,
+                        EliminatedAtText = ToShortDateTimeText(item.EliminatedAt)
                     }).ToList(),
                     clues = game.Clues.Select(item => new
                     {
@@ -212,6 +273,10 @@ namespace DramaMurderGraduation.Web
                         item.Summary,
                         item.Detail,
                         item.ClueType,
+                        item.AssetType,
+                        item.AssetUrl,
+                        item.FileName,
+                        item.FileExtension,
                         item.IsPublic,
                         item.SortOrder,
                         item.RevealMethod,
@@ -248,7 +313,17 @@ namespace DramaMurderGraduation.Web
                             item.Id,
                             item.Title,
                             item.StageName,
+                            item.Summary,
+                            item.Detail,
                             item.ClueType,
+                            item.AssetType,
+                            item.AssetUrl,
+                            item.FileName,
+                            item.FileExtension,
+                            item.SourceLabel,
+                            item.IsAssetSource,
+                            item.IsRevealed,
+                            item.ReleaseStatus,
                             item.IsPublic
                         }).ToList()
                         : null,
@@ -283,6 +358,13 @@ namespace DramaMurderGraduation.Web
                 return Fail("消息内容请控制在 300 字以内。");
             }
 
+            var gameRepository = new GameRepository();
+            gameRepository.EnsureSessionGameData(reservation.SessionId);
+            if (gameRepository.IsReservationEliminatedBeforeGameEnd(reservation.Id))
+            {
+                return Fail("你已被投票出局，本局结束前只能观战，不能继续发言。结案后可以参与复盘讨论。");
+            }
+
             var currentUser = AuthManager.GetCurrentUser();
             var repository = new ContentRepository();
             repository.AddRoomTextMessage(
@@ -315,6 +397,13 @@ namespace DramaMurderGraduation.Web
             if (audioContent.Length > 2000000)
             {
                 return Fail("语音留言过大，请缩短录音时长后再试。");
+            }
+
+            var gameRepository = new GameRepository();
+            gameRepository.EnsureSessionGameData(reservation.SessionId);
+            if (gameRepository.IsReservationEliminatedBeforeGameEnd(reservation.Id))
+            {
+                return Fail("你已被投票出局，本局结束前只能观战，不能继续发送语音。结案后可以参与复盘讨论。");
             }
 
             var currentUser = AuthManager.GetCurrentUser();
@@ -666,7 +755,30 @@ namespace DramaMurderGraduation.Web
             }
 
             var repository = new ContentRepository();
-            return repository.GetReservationDetail(reservationId, currentUser.CanManageGameRoom ? (int?)null : currentUser.UserId);
+            var reservation = repository.GetReservationDetail(reservationId, currentUser.CanManageGameRoom ? (int?)null : currentUser.UserId);
+            return reservation != null &&
+                   (IsActiveReservation(reservation.Status) || (currentUser.CanManageGameRoom && IsHostEntryReservation(reservation.Status)))
+                ? reservation
+                : null;
+        }
+
+        private static bool IsHostEntryReservation(string status)
+        {
+            return string.Equals(status, "主持入口", StringComparison.Ordinal);
+        }
+
+        private static bool IsActiveReservation(string status)
+        {
+            switch (status)
+            {
+                case "待确认":
+                case "已确认":
+                case "玩家已确认":
+                case "已到店":
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static object Ok(string message)
@@ -682,6 +794,101 @@ namespace DramaMurderGraduation.Web
         private static string GetRoomCode(int sessionId)
         {
             return "ROOM-" + sessionId.ToString("D4");
+        }
+
+        protected string RoomModuleKey
+        {
+            get
+            {
+                var module = (Request.QueryString["module"] ?? string.Empty).Trim().ToLowerInvariant();
+                switch (module)
+                {
+                    case "stage":
+                    case "character":
+                    case "clue":
+                    case "action":
+                    case "vote":
+                    case "ending":
+                    case "participants":
+                    case "media":
+                    case "host":
+                        return module;
+                    default:
+                        return "stage";
+                }
+            }
+        }
+
+        protected string RoomModuleUrl(string moduleKey)
+        {
+            var query = new List<string>();
+            var reservationId = Request.QueryString["reservationId"];
+            var sessionId = Request.QueryString["sessionId"];
+            var host = Request.QueryString["host"];
+
+            if (!string.IsNullOrWhiteSpace(reservationId))
+            {
+                query.Add("reservationId=" + HttpUtility.UrlEncode(reservationId));
+            }
+            else if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                query.Add("sessionId=" + HttpUtility.UrlEncode(sessionId));
+            }
+
+            query.Add("module=" + HttpUtility.UrlEncode((moduleKey ?? "stage").ToLowerInvariant()));
+
+            if (!string.IsNullOrWhiteSpace(host))
+            {
+                query.Add("host=" + HttpUtility.UrlEncode(host));
+            }
+
+            return "GameRoom.aspx?" + string.Join("&", query);
+        }
+
+        protected string RoomFeatureUrl(string featureKey)
+        {
+            var key = (featureKey ?? string.Empty).Trim().ToLowerInvariant();
+            var reservationId = Request.QueryString["reservationId"];
+            if (string.IsNullOrWhiteSpace(reservationId))
+            {
+                return RoomModuleUrl(key);
+            }
+
+            var reservationQuery = "reservationId=" + HttpUtility.UrlEncode(reservationId);
+            switch (key)
+            {
+                case "character":
+                    return "CharacterDossier.aspx?" + reservationQuery;
+                case "ending":
+                    return "GameResult.aspx?" + reservationQuery;
+                case "chat":
+                    return "RoomGroupChat.aspx?" + reservationQuery;
+                case "vote-status":
+                    return "VoteStatus.aspx?" + reservationQuery;
+                default:
+                    return RoomModuleUrl(key);
+            }
+        }
+
+        protected bool IsModuleActive(params string[] moduleKeys)
+        {
+            return moduleKeys.Any(moduleKey =>
+                string.Equals(moduleKey, RoomModuleKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        protected string ModuleNavClass(string moduleKey)
+        {
+            return IsModuleActive(moduleKey) ? "is-active" : string.Empty;
+        }
+
+        protected string ModuleSectionClass(params string[] moduleKeys)
+        {
+            return IsModuleActive(moduleKeys) ? string.Empty : " room-module-page-hidden";
+        }
+
+        protected string ModuleItemClass(string moduleKey)
+        {
+            return IsModuleActive(moduleKey) ? string.Empty : " room-module-page-hidden";
         }
 
         private static string ToFullDateTimeText(DateTime? value)

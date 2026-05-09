@@ -6,12 +6,18 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// GroupChat.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class GroupChatPage : System.Web.UI.Page
     {
         private readonly FriendWorkspaceRepository _workspaceRepository = new FriendWorkspaceRepository();
         private ChatGroupInfo _group;
         private CurrentUserInfo _currentUser;
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             if (Page.Form != null)
@@ -42,6 +48,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnSendGroupMessage_Click(object sender, EventArgs e)
         {
             pnlGroupMessage.Visible = true;
@@ -86,6 +95,9 @@ namespace DramaMurderGraduation.Web
             BindPage(markAsRead: success);
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnTogglePinGroup_Click(object sender, EventArgs e)
         {
             pnlGroupMessage.Visible = true;
@@ -94,6 +106,9 @@ namespace DramaMurderGraduation.Web
             BindPage(markAsRead: false);
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnMuteGroup_Click(object sender, EventArgs e)
         {
             pnlGroupMessage.Visible = true;
@@ -102,6 +117,9 @@ namespace DramaMurderGraduation.Web
             BindPage(markAsRead: false);
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnHideGroup_Click(object sender, EventArgs e)
         {
             pnlGroupMessage.Visible = true;
@@ -110,6 +128,9 @@ namespace DramaMurderGraduation.Web
             BindPage(markAsRead: false);
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindPage(bool markAsRead)
         {
             _group = _workspaceRepository.GetChatGroupById(_currentUser.UserId, _group.GroupId);
@@ -127,6 +148,9 @@ namespace DramaMurderGraduation.Web
             BindMessages(markAsRead);
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindMessages(bool markAsRead)
         {
             if (markAsRead)
@@ -138,6 +162,9 @@ namespace DramaMurderGraduation.Web
             rptGroupMessages.DataBind();
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         protected string GetGroupBubbleClass(object senderUserId)
         {
             return Convert.ToInt32(senderUserId) == _currentUser.UserId
@@ -145,6 +172,9 @@ namespace DramaMurderGraduation.Web
                 : "chat-message-bubble incoming";
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         protected string GetAvatarUrl(object avatarUrl)
         {
             var value = Convert.ToString(avatarUrl)?.Trim();
@@ -166,6 +196,9 @@ namespace DramaMurderGraduation.Web
             return ResolveUrl("~/" + value.TrimStart('/'));
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         protected string GetMessageTypeLabel(object messageType)
         {
             switch (Convert.ToString(messageType))
@@ -183,6 +216,9 @@ namespace DramaMurderGraduation.Web
             }
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         protected IHtmlString RenderAttachment(object attachmentUrl)
         {
             var value = Convert.ToString(attachmentUrl);
@@ -195,6 +231,9 @@ namespace DramaMurderGraduation.Web
             return new HtmlString("<p class=\"chat-attachment\"><a class=\"text-link strong\" href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener\">查看附件</a></p>");
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         protected IHtmlString RenderLocation(object locationText)
         {
             var value = Convert.ToString(locationText);
@@ -206,11 +245,17 @@ namespace DramaMurderGraduation.Web
             return new HtmlString("<p class=\"chat-location\">位置：" + HttpUtility.HtmlEncode(value) + "</p>");
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         protected string HtmlEncode(object value)
         {
             return HttpUtility.HtmlEncode(Convert.ToString(value));
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         private void EnsureMessageTypeOptions()
         {
             if (ddlGroupMessageType.Items.Count > 0)
@@ -225,6 +270,9 @@ namespace DramaMurderGraduation.Web
             ddlGroupMessageType.Items.Add(new ListItem("语音留言", "Voice"));
         }
 
+        /// <summary>
+        /// 设置页面控件状态或提示信息。
+        /// </summary>
         private void ShowMessage(string message, bool success)
         {
             pnlGroupMessage.CssClass = success ? "status-message success wx-chat-status" : "status-message error wx-chat-status";

@@ -1,0 +1,23 @@
+<view class="page">
+  <view wx:if="{{user}}" class="card profile">
+    <view class="avatar">{{userInitial}}</view>
+    <view>
+      <view class="name">{{user.DisplayName || user.Username}}</view>
+      <view class="muted">{{user.RoleCode}} · 余额 ￥{{user.Balance}}</view>
+    </view>
+  </view>
+
+  <view wx:else class="card">
+    <input class="input" placeholder="用户名" value="{{login.username}}" data-field="username" bindinput="loginInput" />
+    <input class="input" password placeholder="密码" value="{{login.password}}" data-field="password" bindinput="loginInput" />
+    <button class="button" bindtap="doLogin">登录</button>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">接口地址</view>
+    <input class="input" value="{{apiBase}}" bindinput="setApiBase" />
+    <button class="button ghost-button" bindtap="saveApiBase">保存接口地址</button>
+  </view>
+
+  <button wx:if="{{user}}" class="button logout" bindtap="logout">退出登录</button>
+</view>

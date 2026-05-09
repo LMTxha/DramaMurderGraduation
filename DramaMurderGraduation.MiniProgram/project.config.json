@@ -1,0 +1,17 @@
+{
+  "description": "Drama Murder Graduation WeChat Mini Program",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "latest",
+  "appid": "touristappid",
+  "projectname": "DramaMurderGraduation.MiniProgram",
+  "condition": {}
+}

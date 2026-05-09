@@ -11,10 +11,20 @@ using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web.Data
 {
+    /// <summary>
+    /// AI 聊天网关客户端。
+    /// 项目把不同厂商统一成 OpenAI Chat Completions 风格的请求，因此页面只需要选择 providerKey 和 model。
+    /// </summary>
     public class AiGatewayClient
     {
+        // 当 Web.config 没有配置自定义系统提示词时使用该默认提示词。
+        // 提示词面向剧本推荐、门店运营、预约沟通和文案生成等系统内场景。
         private const string DefaultSystemPrompt = "你是雾城剧本研究所内置的 AI 助手。回答要直接、准确、可执行，优先使用中文，适合玩家选本、门店运营、预约沟通、文案生成和问题检索场景。";
 
+        /// <summary>
+        /// 读取系统支持的 AI 供应商列表。
+        /// BaseUrl、ApiKey 和默认模型来自 Web.config，避免把密钥写死在代码里。
+        /// </summary>
         public IList<AiProviderOptionInfo> GetProviders()
         {
             return new List<AiProviderOptionInfo>
@@ -31,6 +41,10 @@ namespace DramaMurderGraduation.Web.Data
             };
         }
 
+        /// <summary>
+        /// 向指定 AI 供应商发送一次非流式聊天请求。
+        /// 方法会先完成供应商配置校验，再组装历史消息，最后解析响应中的 assistant 内容。
+        /// </summary>
         public AiResponseInfo AskQuestion(string providerKey, string model, string prompt, bool deepThinking, IEnumerable<AiConversationEntryInfo> history)
         {
             var provider = GetProviders().FirstOrDefault(item => string.Equals(item.Key, providerKey, StringComparison.OrdinalIgnoreCase));
@@ -66,6 +80,7 @@ namespace DramaMurderGraduation.Web.Data
             };
             if (string.Equals(provider.Key, "nvidia", StringComparison.OrdinalIgnoreCase))
             {
+                // NVIDIA NIM 示例接口对生成长度和 top_p 更敏感，单独给出保守参数。
                 payload["top_p"] = 0.7;
                 payload["max_tokens"] = 1024;
             }
@@ -93,6 +108,7 @@ namespace DramaMurderGraduation.Web.Data
                 using (var reader = new StreamReader(responseStream ?? Stream.Null, Encoding.UTF8))
                 {
                     var responseText = reader.ReadToEnd();
+                    // 供应商响应结构大体相同，但内容字段可能是字符串或数组，统一交给 ExtractAssistantContent 兜底解析。
                     var content = ExtractAssistantContent(serializer.DeserializeObject(responseText));
                     stopwatch.Stop();
 
@@ -116,6 +132,9 @@ namespace DramaMurderGraduation.Web.Data
             }
         }
 
+        /// <summary>
+        /// 根据配置键构造一个供应商选项，并在配置缺省时使用 fallbackModel。
+        /// </summary>
         private static AiProviderOptionInfo BuildProvider(string key, string displayName, string regionLabel, string baseUrlKey, string apiKeyKey, string modelKey, string fallbackModel)
         {
             return new AiProviderOptionInfo
@@ -129,10 +148,18 @@ namespace DramaMurderGraduation.Web.Data
             };
         }
 
+        /// <summary>
+        /// 把 Web.config 中配置的 base_url 规范成 chat/completions 端点地址。
+        /// </summary>
         private static string BuildChatCompletionsUrl(string baseUrl)
         {
             return (baseUrl ?? string.Empty).Trim().TrimEnd('/') + "/chat/completions";
         }
+
+        /// <summary>
+        /// 组装发送给模型的 messages。
+        /// 只带最近 8 条有效历史，避免上下文过长导致响应变慢或超出模型限制。
+        /// </summary>
         private static List<Dictionary<string, object>> BuildMessages(IEnumerable<AiConversationEntryInfo> history, string prompt, bool deepThinking)
         {
             var messages = new List<Dictionary<string, object>>
@@ -153,6 +180,10 @@ namespace DramaMurderGraduation.Web.Data
             return messages;
         }
 
+        /// <summary>
+        /// 构造系统提示词。
+        /// 深度思考模式会附加“拆解问题、列出假设、分步推理”的要求。
+        /// </summary>
         private static string BuildSystemPrompt(bool deepThinking)
         {
             var configured = ConfigurationManager.AppSettings["AiDefaultSystemPrompt"];
@@ -160,6 +191,10 @@ namespace DramaMurderGraduation.Web.Data
             return deepThinking ? prompt + " 回答前先拆解问题，列出关键假设，给出分步推理和明确建议。" : prompt;
         }
 
+        /// <summary>
+        /// 从 WebException 中提取更友好的错误消息。
+        /// 如果供应商返回标准 error.message，则优先展示该字段；否则回退到原始响应体。
+        /// </summary>
         private static string ReadErrorMessage(WebException ex, JavaScriptSerializer serializer)
         {
             if (ex.Response == null)
@@ -195,6 +230,11 @@ namespace DramaMurderGraduation.Web.Data
                 return body;
             }
         }
+
+        /// <summary>
+        /// 从 Chat Completions 响应中读取 assistant 的最终文本。
+        /// 兼容 content 和 reasoning_content 两类字段。
+        /// </summary>
         private static string ExtractAssistantContent(object rootObject)
         {
             var root = rootObject as Dictionary<string, object>;
@@ -234,6 +274,9 @@ namespace DramaMurderGraduation.Web.Data
             return string.Empty;
         }
 
+        /// <summary>
+        /// 把供应商可能返回的字符串、文本数组或对象数组统一转换成可展示文本。
+        /// </summary>
         private static string NormalizeContent(object content)
         {
             if (content == null)

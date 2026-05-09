@@ -2,10 +2,16 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// Discover.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class DiscoverPage : System.Web.UI.Page
     {
         private readonly FeatureRepository _repository = new FeatureRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, System.EventArgs e)
         {
             if (IsPostBack)
@@ -16,6 +22,9 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindPage()
         {
             var recommendations = _repository.GetTodayRecommendations(4);
@@ -72,6 +81,9 @@ namespace DramaMurderGraduation.Web
             rptIdentityOptions.DataBind();
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         private static string CleanCopy(string value, string fallback)
         {
             if (string.IsNullOrWhiteSpace(value))

@@ -1,4 +1,7 @@
-﻿SET NOCOUNT ON;
+-- 主数据库结构和基础种子数据脚本，创建剧本杀系统运行所需的数据表、约束和初始内容。
+-- 执行前请确认目标数据库和连接上下文，避免覆盖非演示环境数据。
+
+SET NOCOUNT ON;
 
 IF OBJECT_ID(N'dbo.SchemaMigrations', N'U') IS NULL
 BEGIN
@@ -1291,6 +1294,18 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_SessionCharacterAssig
 BEGIN
     CREATE UNIQUE INDEX UX_SessionCharacterAssignments_SessionCharacter
     ON dbo.SessionCharacterAssignments(SessionId, CharacterId);
+END
+GO
+
+IF COL_LENGTH(N'dbo.SessionCharacterAssignments', N'IsEliminated') IS NULL
+BEGIN
+    ALTER TABLE dbo.SessionCharacterAssignments ADD IsEliminated BIT NOT NULL CONSTRAINT DF_SessionCharacterAssignments_IsEliminated DEFAULT(0);
+END
+GO
+
+IF COL_LENGTH(N'dbo.SessionCharacterAssignments', N'EliminatedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.SessionCharacterAssignments ADD EliminatedAt DATETIME NULL;
 END
 GO
 

@@ -5,10 +5,16 @@ using DramaMurderGraduation.Web.Data;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// Download.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class DownloadPage : System.Web.UI.Page
     {
         private readonly ContentRepository _contentRepository = new ContentRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             var platform = Request.QueryString["platform"];
@@ -34,6 +40,9 @@ namespace DramaMurderGraduation.Web
             rptReleaseNotes.DataBind();
         }
 
+        /// <summary>
+        /// 页面辅助方法，封装当前页面使用的局部业务逻辑。
+        /// </summary>
         private void SendDownload(string platformCode)
         {
             var option = _contentRepository.GetDownloadOption(platformCode);

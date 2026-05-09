@@ -1,14 +1,20 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DramaMurderGraduation.Web.Data;
 using DramaMurderGraduation.Web.Models;
 
 namespace DramaMurderGraduation.Web
 {
+    /// <summary>
+    /// Analytics.aspx 页面后台逻辑，负责当前 Web Forms 页面的权限校验、数据绑定和事件处理。
+    /// </summary>
     public partial class AnalyticsPage : System.Web.UI.Page
     {
         private readonly FeatureRepository _repository = new FeatureRepository();
 
+        /// <summary>
+        /// 页面生命周期入口，负责权限校验和首次加载时的数据初始化。
+        /// </summary>
         protected void Page_Load(object sender, EventArgs e)
         {
             AuthManager.RequireAnalytics();
@@ -23,11 +29,17 @@ namespace DramaMurderGraduation.Web
             BindPage();
         }
 
+        /// <summary>
+        /// 处理页面按钮点击事件，并根据当前表单输入刷新或提交业务数据。
+        /// </summary>
         protected void btnApplyFilter_Click(object sender, EventArgs e)
         {
             BindPage();
         }
 
+        /// <summary>
+        /// 绑定页面展示数据到对应控件。
+        /// </summary>
         private void BindPage()
         {
             pnlFilterMessage.Visible = false;
@@ -65,6 +77,9 @@ namespace DramaMurderGraduation.Web
             rptEconomyInsights.DataBind();
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         protected string GetInsightUnit(object dataItem)
         {
             var item = dataItem as CompletionInsightInfo;
@@ -76,6 +91,9 @@ namespace DramaMurderGraduation.Web
             return string.Equals(item.MetricType, "DM", StringComparison.OrdinalIgnoreCase) ? string.Empty : "%";
         }
 
+        /// <summary>
+        /// 获取页面展示或业务判断所需的数据。
+        /// </summary>
         protected string GetEconomyUnit(object dataItem)
         {
             var item = dataItem as EconomyInsightInfo;
@@ -87,6 +105,9 @@ namespace DramaMurderGraduation.Web
             return string.Equals(item.CategoryName, "金额", StringComparison.OrdinalIgnoreCase) ? " 元" : string.Empty;
         }
 
+        /// <summary>
+        /// 尝试解析或校验输入，并通过返回值表示是否成功。
+        /// </summary>
         private bool TryGetDateRange(out DateTime startDate, out DateTime endDate, out string message)
         {
             var today = DateTime.Today;
@@ -124,6 +145,9 @@ namespace DramaMurderGraduation.Web
             return true;
         }
 
+        /// <summary>
+        /// 根据业务数据构造页面展示所需的视图模型。
+        /// </summary>
         private static AnalyticsMetricInfo BuildFallbackMetric(DateTime startDate, DateTime endDate)
         {
             return new AnalyticsMetricInfo
@@ -149,6 +173,9 @@ namespace DramaMurderGraduation.Web
             };
         }
 
+        /// <summary>
+        /// 根据业务数据构造页面展示所需的视图模型。
+        /// </summary>
         private static IList<CompletionInsightInfo> BuildCompletionInsights(AnalyticsMetricInfo metric)
         {
             return new List<CompletionInsightInfo>
@@ -188,6 +215,9 @@ namespace DramaMurderGraduation.Web
             };
         }
 
+        /// <summary>
+        /// 根据业务数据构造页面展示所需的视图模型。
+        /// </summary>
         private static IList<EconomyInsightInfo> BuildEconomyInsights(AnalyticsMetricInfo metric)
         {
             return new List<EconomyInsightInfo>

@@ -1,0 +1,50 @@
+.detail-head {
+  display: flex;
+  gap: 24rpx;
+}
+
+.cover {
+  width: 220rpx;
+  height: 300rpx;
+  border-radius: 10rpx;
+  background: #ded4c8;
+}
+
+.head-body {
+  flex: 1;
+}
+
+.title {
+  font-size: 42rpx;
+  font-weight: 800;
+}
+
+.price {
+  margin: 22rpx 0;
+  color: #a83c32;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.text-block,
+.summary {
+  color: #4b433d;
+  font-size: 26rpx;
+  line-height: 1.65;
+}
+
+.character,
+.session {
+  margin-bottom: 16rpx;
+}
+
+.session {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.right {
+  color: #a83c32;
+  font-weight: 800;
+}
